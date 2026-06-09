@@ -4,6 +4,17 @@ into ``sys.modules`` *before* any ``node_runner`` code is imported.
 
 Because this file lives **outside** the ``node_runner`` package, pytest
 processes it before discovering or importing anything from the package.
+
+Copyright (C) 2024 Noah Thiering
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Modifications (2026-06-09) by Auto Texture contributors:
+  - Added ColorManagedInputColorspaceSettings stub class (name attr)
+    for colorspace_name serialization/deserialization test support
+  - Added EnumProperty to bpy.props mocks
 """
 
 import sys

@@ -3,6 +3,19 @@ Deserialization module for Node Runner.
 
 Recreates Blender node trees from plain Python dicts produced by
 the serialization module.
+
+Copyright (C) 2024 Noah Thiering
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Modifications (2026-06-09) by Auto Texture contributors:
+  - deserialize_image(): Rewrote image assignment logic - now assigns image
+    to node first, then restores colorspace_settings.name from stored
+    colorspace_name field (sRGB for BaseColor/AO, Non-Color for
+    Metallic/Roughness/Normal per PBR standard)
+  - Original version only did load+assign without colorspace restoration
 """
 
 import logging

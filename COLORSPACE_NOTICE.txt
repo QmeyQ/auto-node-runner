@@ -5,26 +5,18 @@ Date: 2026-06-09
 
 1. COLORSPACE MODIFICATIONS
 ----------------------------
-The following colorspace_name changes were made in the template JSON
-files (ao.json, noao.json) compared to node_runner-1.4.1 originals:
+The following colorspace changes support PBR-compliant texture workflows.
 
-ao.json changes:
-  - Metallic Image Texture: colorspace_name "sRGB" -> "Non-Color"
-    (PBR standard: metallic maps are data, not color)
-  - Roughness Image Texture: colorspace_name "sRGB" -> "Non-Color"
-    (PBR standard: roughness maps are data, not color)
-  - Normal Image Texture: colorspace_name "sRGB" -> "Non-Color"
-    (PBR standard: normal maps are data, not color)
-  - AO Image Texture: colorspace_name "sRGB" -> "sRGB" (unchanged)
-  - BaseColor Image Texture: colorspace_name "sRGB" -> "sRGB" (unchanged)
+Template JSON files (ao.json, noao.json) - colorspace_name values:
+  - BaseColor Image Texture: sRGB (color data)
+  - AO Image Texture: sRGB (color data)
+  - Metallic Image Texture: Non-Color (data map, PBR standard)
+  - Roughness Image Texture: Non-Color (data map, PBR standard)
+  - Normal Image Texture: Non-Color (data map, PBR standard)
+
+ao.json additional change:
   - Mix node blend_type: "MULTIPLY" -> "BURN"
     (BURN blend mode produces more natural AO overlay)
-
-noao.json changes:
-  - Metallic Image Texture: colorspace_name "sRGB" -> "Non-Color"
-  - Roughness Image Texture: colorspace_name "sRGB" -> "Non-Color"
-  - Normal Image Texture: colorspace_name "sRGB" -> "Non-Color"
-  - BaseColor Image Texture: colorspace_name "sRGB" -> "sRGB" (unchanged)
 
 These follow PBR texture conventions as documented in:
   - KhronosGroup/glTF 2.0 Specification
@@ -39,14 +31,36 @@ by Noah Thiering, originally licensed under GPL-3.0.
 
 MODIFIED FILES (from node_runner-1.4.1):
   - __init__.py: Added i18n/panel module registration, fault-tolerant
-    unregister with history.cleanup_nodetmp(), logging import
-  - operators.py: Added Auto Texture operators, property groups,
-    preferences with language selection, i18n/history integration,
-    template-based node application, fuzzy material name matching,
-    external match_rules.json loading. Removed panel class.
-  - ao.json: Changed colorspace_name and blend_type as listed above
-  - noao.json: Changed colorspace_name as listed above
-  - blender_manifest.toml: Changed id, name, version for addon isolation
+    unregister with history.cleanup_nodetmp(), logging import,
+    plugin renamed to "Auto Node Runner"
+  - operators.py: Added Auto Texture operators (NODE_OT_match_textures,
+    NODE_OT_apply_textures, NODE_OT_clear_texture_matches,
+    NODE_OT_select_texture_directory), property groups
+    (TextureMatchItem, NodeRunnerProperties), preferences with language
+    selection (AUTO/en_US/zh_CN), i18n/history integration,
+    template-based node application via deserialize_node_tree
+    (_rewrite_template_paths, _rename_template_nodes,
+    _remove_missing_links, _apply_template_to_material),
+    fuzzy material name matching (_build_mat_name_pattern),
+    external match_rules.json loading. Removed panel class to panel.py.
+  - serialize.py: Added colorspace_name field serialization in
+    serialize_image() (stores image.colorspace_settings.name for
+    PBR color space preservation). Added dump_node() and
+    dump_node_tree() debug/utility functions.
+  - deserialize.py: Rewrote deserialize_image() logic - now assigns
+    image to node first, then restores colorspace_settings.name from
+    stored colorspace_name field. Original version only did
+    load+assign without colorspace restoration.
+  - conftest.py: Added ColorManagedInputColorspaceSettings stub class
+    (name attribute) for colorspace_name serialization/deserialization
+    test support. Added EnumProperty to bpy.props mocks.
+  - ao.json: Set PBR-correct colorspace_name values (Non-Color for
+    Metallic/Roughness/Normal, sRGB for BaseColor/AO). Changed
+    blend_type from MULTIPLY to BURN.
+  - noao.json: Set PBR-correct colorspace_name values (Non-Color for
+    Metallic/Roughness/Normal, sRGB for BaseColor).
+  - blender_manifest.toml: Changed id to auto_node_runner, name to
+    "Auto Node Runner", version to 0.0.1 for addon isolation.
 
 NEW FILES (not in node_runner-1.4.1):
   - i18n.py: Internationalization module (GPL-3.0)
@@ -56,10 +70,9 @@ NEW FILES (not in node_runner-1.4.1):
   - COLORSPACE_NOTICE.txt: This notice file (GPL-3.0)
 
 UNCHANGED FILES (identical to node_runner-1.4.1):
-  - constants.py, serialize.py, deserialize.py, encoding.py,
-    node_data.py, conftest.py, LICENSE, README.md, .gitignore,
-    .pylintrc, release.md, CODE_WIKI.md, mkdocs.yml,
-    tests/ directory, docs/ directory, .github/ directory
+  - constants.py, encoding.py, node_data.py, LICENSE,
+    README.md, .gitignore, .pylintrc, release.md, CODE_WIKI.md,
+    mkdocs.yml, tests/ directory, docs/ directory, .github/ directory
 
 All modifications are released under the same GPL-3.0 license
 as the original Node Runner project, as required by the license terms.
