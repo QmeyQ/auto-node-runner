@@ -1,0 +1,49 @@
+name: Build Blender Extension
+
+on:
+  push:
+    tags:
+    - '*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  build:
+    name: Build Blender Extension
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Blender
+      run: | 
+        wget https://download.blender.org/release/Blender4.5/blender-4.5.0-linux-x64.tar.xz -O blender.tar.xz
+        mkdir blender
+        tar -xvf blender.tar.xz -C blender --strip-components=1
+    - name: Move files
+      run: |
+        mkdir extension
+        cp blender_manifest.toml LICENSE extension/
+        cp __init__.py operators.py constants.py encoding.py serialize.py deserialize.py node_data.py extension/
+        
+    - name: Build Blender Extension
+      run: cd extension && ../blender/blender --command extension build
+
+    - name: Move zip file
+      run: mkdir build_output && mv extension/node_runner-*.zip build_output
+
+    - name: Archive Build
+      uses: actions/upload-artifact@v4
+      with: 
+        name: blender-extension-build
+        path: build_output/
+
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "build_output/*.zip"
+        bodyFile: "release.md"
+        allowUpdates: true
+        omitBodyDuringUpdate: true
+
+
