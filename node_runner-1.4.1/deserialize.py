@@ -199,50 +199,37 @@ def deserialize_curve_mapping(node, data):
 
 
 def deserialize_image(node, data):
-    """Set image on *node* from serialized data, then restore color space.
+    """Set image on *node* from serialized data.
 
     Looks up by name first.  If the image is not already loaded and a
-    ``filepath`` was stored, attempts to load it from disk.  After the
-    image is assigned, restores ``colorspace_settings.name`` from the
-    stored ``colorspace_name``.
+    ``filepath`` was stored, attempts to load it from disk.
     """
     img_name = data.get("name")
     if not img_name:
         return
 
     image = bpy.data.images.get(img_name)
-    if image is None:
-        filepath = data.get("filepath", "")
-        if filepath:
-            try:
-                image = bpy.data.images.load(filepath)
-                log.info("Loaded image '%s' from '%s'.", img_name, filepath)
-            except (RuntimeError, OSError):
-                log.warning(
-                    "Image '%s' not found in blend file and could not be "
-                    "loaded from '%s'.",
-                    img_name,
-                    filepath,
-                )
-                return
-        else:
-            log.info("Image '%s' not found in blend file.", img_name)
+    if image:
+        node.image = image
+        return
+
+    filepath = data.get("filepath", "")
+    if filepath:
+        try:
+            image = bpy.data.images.load(filepath)
+            node.image = image
+            log.info("Loaded image '%s' from '%s'.", img_name, filepath)
+            return
+        except (RuntimeError, OSError):
+            log.warning(
+                "Image '%s' not found in blend file and could not be "
+                "loaded from '%s'.",
+                img_name,
+                filepath,
+            )
             return
 
-    node.image = image
-
-    colorspace_name = data.get("colorspace_name", "")
-    if colorspace_name:
-        try:
-            node_image = getattr(node, "image", None)
-            if node_image is not None:
-                node_image.colorspace_settings.name = colorspace_name
-        except (TypeError, AttributeError, RuntimeError):
-            log.warning(
-                "Could not set colorspace '%s' on '%s'",
-                colorspace_name,
-                img_name,
-            )
+    log.info("Image '%s' not found in blend file.", img_name)
 
 
 def deserialize_text_line(text_line, data):

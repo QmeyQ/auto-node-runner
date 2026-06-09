@@ -4,6 +4,15 @@ Internationalization (i18n) module for Auto Node Runner.
 Provides translation lookup for en_US and zh_CN languages.
 Automatically follows Blender system language, with manual override option.
 Default is AUTO (follow system).
+
+Copyright (C) 2026 Auto Texture contributors
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This file is part of the Auto Texture extension to Node Runner.
+Node Runner is originally by Noah Thiering, licensed under GPL-3.0.
 """
 
 import bpy

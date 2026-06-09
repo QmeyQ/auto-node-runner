@@ -3,6 +3,18 @@ Node Runner - Import & export shader nodes as shareable strings.
 
 Serializes Blender shader node trees to compressed, base64-encoded
 strings that can be shared via text, comments, or documentation.
+
+Copyright (C) 2024 Noah Thiering
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Modifications (2026-06-09) by Auto Texture contributors:
+  - Renamed from "Node Runner" to "Auto Node Runner" for addon isolation
+  - Added i18n and panel module registration in register()
+  - Added fault-tolerant unregister() with history.cleanup_nodetmp()
+  - All internal package references use __package__ for addon isolation
 """
 
 import logging

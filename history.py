@@ -3,6 +3,15 @@ History persistence module for Auto Node Runner.
 
 Manages reading/writing nodetmp.txt for texture match persistence,
 and merging auto-matched results with old history records.
+
+Copyright (C) 2026 Auto Texture contributors
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This file is part of the Auto Texture extension to Node Runner.
+Node Runner is originally by Noah Thiering, licensed under GPL-3.0.
 """
 
 import logging
