@@ -3,6 +3,17 @@ Serialization module for Node Runner.
 
 Converts Blender node trees into plain Python dicts that can be
 encoded and shared as strings.
+
+Copyright (C) 2024 Noah Thiering
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Modifications (2026-06-09) by Auto Texture contributors:
+  - serialize_image(): Added colorspace_name field serialization
+    (stores image.colorspace_settings.name for PBR color space preservation)
+  - Added dump_node() and dump_node_tree() debug/utility functions
 """
 
 import logging
