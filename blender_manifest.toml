@@ -1,0 +1,31 @@
+schema_version = "1.0.0"
+
+id = "auto_node_runner"
+version = "0.0.1"
+name = "Auto Node Runner"
+tagline = "Import and export nodes as strings"
+maintainer = "Noah Thiering <noah.thiering@gmail.com>"
+
+type = "add-on"
+
+tags = ["Node", "Material", "Geometry Nodes"]
+
+blender_version_min = "4.5.0"
+
+# https://docs.blender.org/manual/en/dev/advanced/extensions/licenses.html
+license = ["SPDX:GPL-3.0-or-later"]
+
+[build]
+paths = [
+  "__init__.py",
+  "operators.py",
+  "constants.py",
+  "encoding.py",
+  "node_data.py",
+  "serialize.py",
+  "deserialize.py",
+  "LICENSE",
+]
+
+[permissions]
+clipboard = "Copy Node Runner Hash to clipboard"

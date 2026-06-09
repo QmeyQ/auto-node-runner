@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "rules": {
+    "basecolor": {
+      "description": "Base Color / Albedo / Diffuse texture",
+      "patterns": [
+        "basecolor",
+        "albedo",
+        "diffuse",
+        "color",
+        "base",
+        "bc",
+        "col"
+      ]
+    },
+    "metallic": {
+      "description": "Metallic / Metalness texture",
+      "patterns": [
+        "metallic",
+        "metal",
+        "metalness",
+        "mt",
+        "metallicmap",
+        "metalmap"
+      ]
+    },
+    "roughness": {
+      "description": "Roughness texture",
+      "patterns": [
+        "roughness",
+        "rough",
+        "rgh",
+        "roughmap",
+        "roughnessmap"
+      ]
+    },
+    "normal": {
+      "description": "Normal map texture",
+      "patterns": [
+        "normal",
+        "norm",
+        "nrm",
+        "nor",
+        "normalmap",
+        "nmap"
+      ]
+    },
+    "ao": {
+      "description": "Ambient Occlusion texture",
+      "patterns": [
+        "ambient_occlusion",
+        "ambientocclusion",
+        "ao",
+        "occlusion",
+        "occ",
+        "aomap",
+        "occlusionmap"
+      ]
+    }
+  },
+  "image_extensions": [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tga",
+    ".exr",
+    ".tif",
+    ".tiff",
+    ".bmp",
+    ".hdr"
+  ]
+}
