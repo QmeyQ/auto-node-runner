@@ -62,11 +62,14 @@ def _count_missing(item):
     return missing
 
 
-# [Auto Texture] Draw the resource directory selection row - Modified: 2026-06-09
+# [Auto Texture] Draw the resource directory row - Modified: 2026-06-09
 def _draw_directory_row(layout, node_runner):
     row = layout.row(align=True)
-    row.label(text=i18n.get_text("label.resource_directory"), icon="FILE_FOLDER")
     row.prop(node_runner, "texture_directory", text="")
+    if not node_runner.texture_directory:
+        blend_dir = bpy.path.abspath("//")
+        if blend_dir and os.path.isdir(blend_dir):
+            row.label(text=blend_dir, icon="INFO")
 
 
 # [Auto Texture] Draw the match/clear textures button row - Modified: 2026-06-09
@@ -114,9 +117,9 @@ def _draw_apply_button_row(layout, missing_count):
 
 
 # [Auto Texture] VIEW_3D panel class for Auto Texture UI - Modified: 2026-06-09
-class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
+class AUTO_TEXTURE_PT_main(bpy.types.Panel):
     bl_label = "Auto Texture"
-    bl_idname = _PKG + "_panel_auto_texture"
+    bl_idname = _PKG + "_PT_main"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Auto Texture"
@@ -125,21 +128,11 @@ class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
     def poll(cls, context):
         return True
 
-    # [Auto Texture] Draw method: auto-set directory, load history, apply button before material list - Modified: 2026-06-09
+    # [Auto Texture] Draw method - Modified: 2026-06-09
     def draw(self, context):
         layout = self.layout
         scene = context.scene
         node_runner = scene.node_runner
-
-        self.__class__.bl_label = i18n.get_text("panel.title")
-        self.__class__.bl_category = i18n.get_text("panel.category")
-
-        # Auto-set resource directory to blend file directory if not set
-        # Modified: 2026-06-09
-        if not node_runner.texture_directory and bpy.data.filepath:
-            blend_dir = os.path.dirname(bpy.data.filepath)
-            if blend_dir:
-                node_runner.texture_directory = blend_dir
 
         _draw_directory_row(layout, node_runner)
 
@@ -179,7 +172,7 @@ class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
 
 
 _classes = (
-    NODE_RUNNER_PT_auto_texture,
+    AUTO_TEXTURE_PT_main,
 )
 
 
