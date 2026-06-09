@@ -1,5 +1,30 @@
 """
 Blender operators and UI for Node Runner import/export.
+
+Copyright (C) 2024 Noah Thiering
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Modifications (2026-06-09) by Auto Texture contributors:
+  - Added Auto Texture matching and application operators:
+    NODE_OT_match_textures, NODE_OT_apply_textures,
+    NODE_OT_clear_texture_matches, NODE_OT_select_texture_directory
+  - Added TextureMatchItem and NodeRunnerProperties property groups
+  - Added AUTO_NODE_RUNNER_preferences with language selection (AUTO/en_US/zh_CN)
+  - Removed panel class (moved to panel.py)
+  - Integrated i18n module for internationalized messages
+  - Integrated history module for nodetmp.txt persistence
+  - Added template-based node tree application via deserialize_node_tree:
+    _rewrite_template_paths, _rename_template_nodes,
+    _remove_missing_links, _apply_template_to_material
+  - Added fuzzy material name matching: _build_mat_name_pattern
+  - Added external match_rules.json loading: _load_match_rules, _get_match_rules
+  - Changed colorspace_name in ao.json/noao.json templates:
+    Metallic/Roughness/Normal from sRGB to Non-Color (PBR standard)
+  - Changed blend_type in ao.json from MULTIPLY to BURN for AO mixing
+  - All bl_idname values use __package__ prefix for addon isolation
 """
 
 import logging

@@ -172,10 +172,6 @@ class Menu(_TypeBase):
     bl_label = ""
 
 
-class ColorManagedInputColorspaceSettings(_TypeBase):
-    name = ""
-
-
 class NodeLink(_TypeBase):
     pass
 
@@ -226,7 +222,6 @@ for _name, _cls in [
     ("Operator", Operator),
     ("AddonPreferences", AddonPreferences),
     ("Menu", Menu),
-    ("ColorManagedInputColorspaceSettings", ColorManagedInputColorspaceSettings),
     ("NodeLink", NodeLink),
     ("NodeTree", NodeTree),
     ("NODE_MT_context_menu", NODE_MT_context_menu),

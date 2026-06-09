@@ -118,17 +118,11 @@ def serialize_curve_map_point(node, point):
 
 
 def serialize_image(image):
-    """Serialize an Image reference (name + absolute filepath + color space)."""
+    """Serialize an Image reference (name + absolute filepath when available)."""
     result = {"name": image.name}
     raw_path = getattr(image, "filepath", "")
     if raw_path:
         result["filepath"] = bpy.path.abspath(raw_path)
-    try:
-        cs = image.colorspace_settings.name
-        if cs:
-            result["colorspace_name"] = cs
-    except (AttributeError, RuntimeError):
-        pass
     return result
 
 
@@ -150,9 +144,6 @@ def serialize_text(text):
         "select_end_line_index": text.select_end_line_index,
         "use_module": text.use_module,
     }
-
-
-
 
 
 # Generic attribute dispatcher
@@ -361,68 +352,3 @@ def serialize_node_tree(node_tree, selected_node_names=None):
 
     log.debug("Serialized %d links", len(data["links"]))
     return data
-
-
-def dump_node(node):
-    """Print all serialisable properties of a single node to stdout."""
-    print(f"--- Node: {node.name!r}  (type={node.bl_idname!r}) ---")
-
-    for prop in node.bl_rna.properties:
-        prop_name = prop.identifier
-        if prop_name in EXCLUDE_NODE_PROPS:
-            continue
-
-        try:
-            raw = getattr(node, prop_name)
-        except (AttributeError, RuntimeError):
-            print(f"  {prop_name:>30s}  <cannot read>")
-            continue
-
-        serialized = serialize_attr(node, raw)
-        readonly_flag = " [RO]" if prop.is_readonly else ""
-        print(
-            f"  {prop_name:>30s}{readonly_flag}  raw={raw!r}  ->  "
-            f"serialized={serialized!r}"
-        )
-
-    # Also capture dynamic attributes not in bl_rna (e.g. color_space)
-    for attr_name in ("color_space",):
-        if not hasattr(node, attr_name):
-            continue
-        try:
-            raw = getattr(node, attr_name)
-        except (AttributeError, RuntimeError):
-            continue
-        if raw is not None:
-            serialized = (
-                raw if isinstance(raw, str)
-                else getattr(raw, "name", str(raw))
-            )
-            print(f"  {attr_name:>30s}  [dynamic]  raw={raw!r}  ->  "
-                  f"serialized={serialized!r}")
-
-    print(f"--- End Node: {node.name!r} ---")
-
-
-def dump_node_tree(node_tree, selected_only=True):
-    """Print the serialised representation of every node in *node_tree*.
-
-    Args:
-        node_tree: A Blender NodeTree.
-        selected_only: If True (default), only dump selected nodes.
-    """
-    print(f"=== Node Tree: {node_tree.name!r}  "
-          f"(type={node_tree.bl_idname!r}) ===")
-
-    nodes_to_dump = (
-        [n for n in node_tree.nodes if n.select]
-        if selected_only else list(node_tree.nodes)
-    )
-    if not nodes_to_dump:
-        print("  (no nodes to dump)")
-        return
-
-    for node in nodes_to_dump:
-        dump_node(node)
-
-    print(f"=== End Node Tree: {node_tree.name!r} ===")

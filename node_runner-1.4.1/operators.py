@@ -1,16 +1,5 @@
 """
 Blender operators and UI for Node Runner import/export.
-
-Modifications (2026-06-08):
-  - Added AUTO_NODE_RUNNER_preferences class (renamed from NODE_RUNNER_preferences
-    to avoid conflict with original plugin)
-  - All bl_idname values changed to use __package__ prefix for addon isolation
-  - Added 自动贴图 (Auto Texture) Panel with resource directory, texture matching,
-    and one-click apply functionality
-  - Added NODE_OT_match_textures, NODE_OT_apply_textures,
-    NODE_OT_clear_texture_matches, NODE_OT_select_texture_directory operators
-  - Added TextureMatchItem and NodeRunnerProperties property groups
-  - Added auto-save/load to/from nodetmp.txt for texture match persistence
 """
 
 import logging
@@ -27,7 +16,7 @@ from .encoding import (
     decode_as,
     detect_format,
 )
-from .serialize import serialize_node_tree, dump_node_tree
+from .serialize import serialize_node_tree
 from .deserialize import deserialize_node_tree
 
 log = logging.getLogger(__name__)
@@ -186,11 +175,7 @@ def _ensure_default_tree(operator, context, payload_tree_type):
 # Addon preferences
 
 
-class AUTO_NODE_RUNNER_preferences(bpy.types.AddonPreferences):
-    """插件设置面板。
-    重命名自 NODE_RUNNER_preferences 以避免与原始插件冲突。
-    修改于 2026-06-08
-    """
+class NODE_RUNNER_preferences(bpy.types.AddonPreferences):
     bl_idname = __package__
 
     import_at_cursor: bpy.props.BoolProperty(
@@ -596,9 +581,6 @@ def _build_export_payload(operator, context):
 
     data = serialize_node_tree(edit_tree, selected_node_names=names)
 
-    # Print all node properties to stdout for debugging
-    dump_node_tree(edit_tree, selected_only=True)
-
     # Capture modifier values so re-imports recreate the same look the
     # source object had, not just the tree's interface defaults.
     mod = _find_modifier_for_tree(context, edit_tree)
@@ -620,7 +602,7 @@ def _build_export_payload(operator, context):
 class NODE_RUNNER_OT_export_clipboard(bpy.types.Operator):
     """Copy selected nodes to the clipboard as a Node Runner string"""
 
-    bl_idname = __package__ + ".export_clipboard"
+    bl_idname = "node_runner.export_clipboard"
     bl_label = "Copy to Clipboard"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -681,7 +663,7 @@ class NODE_RUNNER_OT_export_clipboard(bpy.types.Operator):
 class NODE_RUNNER_OT_export_file(bpy.types.Operator):
     """Save selected nodes to a file as a Node Runner string"""
 
-    bl_idname = __package__ + ".export_file"
+    bl_idname = "node_runner.export_file"
     bl_label = "Save to File"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -762,7 +744,7 @@ class NODE_RUNNER_OT_export_file(bpy.types.Operator):
 class NODE_RUNNER_OT_import_clipboard(bpy.types.Operator):
     """Import nodes from the clipboard"""
 
-    bl_idname = __package__ + ".import_clipboard"
+    bl_idname = "node_runner.import_clipboard"
     bl_label = "From Clipboard"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -800,7 +782,7 @@ class NODE_RUNNER_OT_import_clipboard(bpy.types.Operator):
 class NODE_RUNNER_OT_import_file(bpy.types.Operator):
     """Import nodes from a file"""
 
-    bl_idname = __package__ + ".import_file"
+    bl_idname = "node_runner.import_file"
     bl_label = "Open File"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -843,7 +825,7 @@ class NODE_RUNNER_OT_import_file(bpy.types.Operator):
 class NODE_RUNNER_OT_confirm_import(bpy.types.Operator):
     """Confirm import when the Blender version differs"""
 
-    bl_idname = __package__ + ".confirm_import"
+    bl_idname = "node_runner.confirm_import"
     bl_label = "Version Mismatch"
     bl_options = {"INTERNAL"}
 
@@ -891,7 +873,7 @@ class NODE_RUNNER_OT_confirm_import(bpy.types.Operator):
 class NODE_RUNNER_MT_menu(bpy.types.Menu):
     """Node Runner submenu"""
 
-    bl_idname = __package__ + "_menu"
+    bl_idname = "NODE_RUNNER_MT_menu"
     bl_label = "Node Runner"
 
     def draw(self, context):
@@ -924,588 +906,6 @@ class NODE_RUNNER_MT_menu(bpy.types.Menu):
         )
 
 
-# ============================================================
-# 自动贴图 (Auto Texture) Panel
-# 新增于 2026-06-08
-# 功能：从资源目录自动匹配贴图文件到选中材质的对应通道，
-#       支持 basecolor/metallic/roughness/normal/AO 五通道，
-#       根据正则匹配规则自动识别贴图类型，
-#       匹配结果实时保存到工程目录下的 nodetmp.txt。
-# ============================================================
-
-import os
-import re
-import json
-
-
-def _get_unique_materials_from_selection(context):
-    """获取选中物体中不重复的材质列表（排除同名材质）。
-    新增于 2026-06-08
-    """
-    materials = []
-    seen = set()
-    for obj in context.selected_objects:
-        if obj.type == "MESH":
-            for slot in obj.material_slots:
-                if slot.material and slot.material.name not in seen:
-                    seen.add(slot.material.name)
-                    materials.append(slot.material)
-    return materials
-
-
-def _clean_material_name(name):
-    """移除材质名中的特殊符号（_ @ . 等），统一转小写用于文件名匹配。
-    新增于 2026-06-08
-    """
-    return re.sub(r"[_\-@.\s]+", "", name).lower()
-
-
-def _match_textures_for_material(mat_name, texture_files):
-    """根据材质名和贴图类型正则规则，从文件列表中匹配对应贴图。
-    规则：先匹配清理后的材质名，再匹配贴图类型关键词（不区分大小写）。
-    新增于 2026-06-08
-    """
-    cleaned_name = _clean_material_name(mat_name)
-    matches = {
-        "basecolor": [],
-        "metallic": [],
-        "roughness": [],
-        "normal": [],
-        "ao": [],
-    }
-
-    # 贴图类型正则匹配表（不区分大小写）
-    # 关键词覆盖最常见的命名约定
-    patterns = {
-        "basecolor": re.compile(
-            r"(" + re.escape(cleaned_name) + r")[^/\\]*?(basecolor|albedo|diffuse|color|base|bc)[^/\\]*?\.(png|jpg|jpeg|tga|exr|tif|tiff)",
-            re.IGNORECASE
-        ),
-        "metallic": re.compile(
-            r"(" + re.escape(cleaned_name) + r")[^/\\]*?(metallic|metal|metalness|mt)[^/\\]*?\.(png|jpg|jpeg|tga|exr|tif|tiff)",
-            re.IGNORECASE
-        ),
-        "roughness": re.compile(
-            r"(" + re.escape(cleaned_name) + r")[^/\\]*?(roughness|rough|rgh)[^/\\]*?\.(png|jpg|jpeg|tga|exr|tif|tiff)",
-            re.IGNORECASE
-        ),
-        "normal": re.compile(
-            r"(" + re.escape(cleaned_name) + r")[^/\\]*?(normal|norm|nrm|nor)[^/\\]*?\.(png|jpg|jpeg|tga|exr|tif|tiff)",
-            re.IGNORECASE
-        ),
-        "ao": re.compile(
-            r"(" + re.escape(cleaned_name) + r")[^/\\]*?(ambient.?occlusion|ao|occlusion|occ)[^/\\]*?\.(png|jpg|jpeg|tga|exr|tif|tiff)",
-            re.IGNORECASE
-        ),
-    }
-
-    for tex_path in texture_files:
-        filename = os.path.basename(tex_path)
-        for tex_type, pattern in patterns.items():
-            if pattern.search(filename):
-                matches[tex_type].append(tex_path)
-
-    return matches
-
-
-def _scan_directory_for_textures(directory):
-    """递归扫描目录，返回所有支持的图片文件路径列表。
-    新增于 2026-06-08
-    """
-    image_extensions = {".png", ".jpg", ".jpeg", ".tga", ".exr", ".tif", ".tiff"}
-    textures = []
-    if os.path.isdir(directory):
-        for root, _, files in os.walk(directory):
-            for f in files:
-                if os.path.splitext(f.lower())[1] in image_extensions:
-                    textures.append(os.path.join(root, f))
-    return textures
-
-
-class NODE_OT_match_textures(bpy.types.Operator):
-    """扫描资源目录，为选中材质的各通道匹配对应贴图文件。
-    新增于 2026-06-08
-    """
-
-    bl_idname = __package__ + ".match_textures"
-    bl_label = "匹配贴图"
-    bl_options = {"REGISTER", "UNDO"}
-
-    def execute(self, context):
-        scene = context.scene
-        node_runner = scene.node_runner
-
-        # 若未设置资源目录，默认使用工程文件所在目录
-        # 新增于 2026-06-08
-        if not node_runner.texture_directory:
-            project_dir = os.path.dirname(bpy.data.filepath) if bpy.data.filepath else ""
-            if project_dir:
-                node_runner.texture_directory = project_dir
-
-        if not node_runner.texture_directory:
-            self.report({"WARNING"}, "请先选择资源目录")
-            return {"CANCELLED"}
-
-        if not os.path.isdir(node_runner.texture_directory):
-            self.report({"WARNING"}, "资源目录无效")
-            return {"CANCELLED"}
-
-        materials = _get_unique_materials_from_selection(context)
-        if not materials:
-            self.report({"WARNING"}, "请先选择包含材质的物体")
-            return {"CANCELLED"}
-
-        # 清除上一次的匹配结果
-        node_runner.texture_matches.clear()
-
-        # 扫描目录获取所有贴图文件
-        textures = _scan_directory_for_textures(node_runner.texture_directory)
-
-        # 为每个材质匹配对应贴图
-        for mat in materials:
-            tex_map = _match_textures_for_material(mat.name, textures)
-            item = node_runner.texture_matches.add()
-            item.material_name = mat.name
-            item.basecolor_path = tex_map["basecolor"][0] if tex_map["basecolor"] else ""
-            item.metallic_path = tex_map["metallic"][0] if tex_map["metallic"] else ""
-            item.roughness_path = tex_map["roughness"][0] if tex_map["roughness"] else ""
-            item.normal_path = tex_map["normal"][0] if tex_map["normal"] else ""
-            item.ao_path = tex_map["ao"][0] if tex_map["ao"] else ""
-
-        # 保存匹配结果到 nodetmp.txt（动态持久化）
-        _save_texture_matches(context)
-
-        mat_count = len(node_runner.texture_matches)
-        self.report({"INFO"}, f"已匹配 {mat_count} 个材质")
-        return {"FINISHED"}
-
-
-def _save_texture_matches(context):
-    """将当前匹配结果序列化为 JSON 保存到工程目录的 nodetmp.txt。
-    每次修改都动态保存，确保重启 Blender 后数据可恢复。
-    新增于 2026-06-08
-    """
-    scene = context.scene
-    node_runner = scene.node_runner
-
-    data = {
-        "texture_directory": node_runner.texture_directory,
-        "matches": [],
-    }
-
-    for item in node_runner.texture_matches:
-        data["matches"].append({
-            "material_name": item.material_name,
-            "basecolor_path": item.basecolor_path,
-            "metallic_path": item.metallic_path,
-            "roughness_path": item.roughness_path,
-            "normal_path": item.normal_path,
-            "ao_path": item.ao_path,
-        })
-
-    tmp_file = os.path.join(os.path.dirname(bpy.data.filepath) or os.path.expanduser("~"), "nodetmp.txt")
-    try:
-        with open(tmp_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        log.warning(f"Failed to save nodetmp.txt: {e}")
-
-
-class NODE_OT_apply_textures(bpy.types.Operator):
-    """一键应用：根据匹配结果，为每个材质创建/连接贴图节点。
-    根据是否匹配到 AO 贴图，自动选择 ao.json 或 noao.json 模板。
-    未找到文件的贴图通道将被断开连接。
-    新增于 2026-06-08
-    """
-
-    bl_idname = __package__ + ".apply_textures"
-    bl_label = "一键应用"
-    bl_options = {"REGISTER", "UNDO"}
-
-    def execute(self, context):
-        scene = context.scene
-        node_runner = scene.node_runner
-
-        if not node_runner.texture_matches:
-            self.report({"WARNING"}, "没有可应用的数据")
-            return {"CANCELLED"}
-
-        # 加载模板文件（优先从插件目录加载）
-        addon_dir = os.path.dirname(os.path.abspath(__file__))
-        ao_template_path = os.path.join(addon_dir, "ao.json")
-        noao_template_path = os.path.join(addon_dir, "noao.json")
-
-        try:
-            with open(ao_template_path, "r", encoding="utf-8") as f:
-                ao_template = json.load(f)
-            with open(noao_template_path, "r", encoding="utf-8") as f:
-                noao_template = json.load(f)
-        except Exception as e:
-            self.report({"ERROR"}, f"无法加载模板文件: {e}")
-            return {"CANCELLED"}
-
-        applied_count = 0
-        missing_count = 0
-
-        for item in node_runner.texture_matches:
-            mat = bpy.data.materials.get(item.material_name)
-            if not mat or not mat.use_nodes:
-                continue
-
-            # 根据是否有 AO 贴图选择模板
-            has_ao = item.ao_path and os.path.exists(item.ao_path)
-            template = ao_template if has_ao else noao_template
-
-            # 查找 Principled BSDF 节点
-            bsdf = None
-            for node in mat.node_tree.nodes:
-                if node.bl_idname == "ShaderNodeBsdfPrincipled":
-                    bsdf = node
-                    break
-
-            if not bsdf:
-                continue
-
-            # 辅助函数：加载图片并连接到 BSDF 对应输入
-            def setup_texture_input(principled_bsdf, input_name, file_path, node_tree):
-                if not file_path or not os.path.exists(file_path):
-                    return None
-
-                # 查找或新建纹理节点
-                tex_node = None
-                for node in node_tree.nodes:
-                    if hasattr(node, "image") and getattr(node, "image", None):
-                        if hasattr(node.image, "filepath") and node.image.filepath == file_path:
-                            tex_node = node
-                            break
-
-                if tex_node is None:
-                    tex_node = node_tree.nodes.new("ShaderNodeTexImage")
-                    try:
-                        img = bpy.data.images.load(file_path)
-                        tex_node.image = img
-                    except Exception:
-                        return None
-
-                # 输入通道到 BSDF 输入索引的映射
-                socket_map = {
-                    "Base Color": 0,
-                    "Metallic": 1,
-                    "Roughness": 2,
-                    "Normal": 3,
-                }
-
-                if input_name in socket_map:
-                    idx = socket_map[input_name]
-                    # 断开已有连接
-                    if idx < len(principled_bsdf.inputs) and principled_bsdf.inputs[idx].links:
-                        link = principled_bsdf.inputs[idx].links[0]
-                        node_tree.links.remove(link)
-
-                    # 连接纹理到 BSDF
-                    try:
-                        node_tree.links.new(tex_node.outputs[0], principled_bsdf.inputs[idx])
-                    except Exception:
-                        pass
-
-                return tex_node
-
-            # 设置各通道贴图
-            if item.basecolor_path:
-                setup_texture_input(bsdf, "Base Color", item.basecolor_path, mat.node_tree)
-            if item.metallic_path:
-                setup_texture_input(bsdf, "Metallic", item.metallic_path, mat.node_tree)
-            if item.roughness_path:
-                setup_texture_input(bsdf, "Roughness", item.roughness_path, mat.node_tree)
-
-            # Normal 贴图需经过 NormalMap 节点转换
-            if item.normal_path and os.path.exists(item.normal_path):
-                normal_node = None
-                for node in mat.node_tree.nodes:
-                    if node.bl_idname == "ShaderNodeNormalMap":
-                        normal_node = node
-                        break
-
-                if normal_node is None:
-                    normal_node = mat.node_tree.nodes.new("ShaderNodeNormalMap")
-
-                norm_tex_node = None
-                for node in mat.node_tree.nodes:
-                    if hasattr(node, "image") and getattr(node, "image", None):
-                        if hasattr(node.image, "filepath") and node.image.filepath == item.normal_path:
-                            norm_tex_node = node
-                            break
-
-                if norm_tex_node is None:
-                    try:
-                        img = bpy.data.images.load(item.normal_path)
-                        norm_tex_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
-                        norm_tex_node.image = img
-                    except Exception:
-                        pass
-
-                if norm_tex_node:
-                    # 断开现有 Normal 连接
-                    if len(bsdf.inputs[3].links) > 0:
-                        link = bsdf.inputs[3].links[0]
-                        mat.node_tree.links.remove(link)
-
-                    # 纹理 -> NormalMap -> BSDF Normal
-                    mat.node_tree.links.new(norm_tex_node.outputs[0], normal_node.inputs[1])
-                    mat.node_tree.links.new(normal_node.outputs[0], bsdf.inputs[3])
-
-            # AO 贴图（如果有）
-            if has_ao:
-                ao_tex_node = None
-                for node in mat.node_tree.nodes:
-                    if hasattr(node, "image") and getattr(node, "image", None):
-                        if hasattr(node.image, "filepath") and node.image.filepath == item.ao_path:
-                            ao_tex_node = node
-                            break
-
-                if ao_tex_node is None:
-                    try:
-                        img = bpy.data.images.load(item.ao_path)
-                        ao_tex_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
-                        ao_tex_node.image = img
-                    except Exception:
-                        pass
-
-            applied_count += 1
-
-        # 统计未找到文件的贴图数量
-        for item in node_runner.texture_matches:
-            for attr in ["basecolor_path", "metallic_path", "roughness_path", "normal_path", "ao_path"]:
-                path = getattr(item, attr)
-                if path and not os.path.exists(path):
-                    missing_count += 1
-
-        self.report({"INFO"}, f"已应用 {applied_count} 个材质, {missing_count} 个贴图未找到")
-        return {"FINISHED"}
-
-
-class NODE_OT_clear_texture_matches(bpy.types.Operator):
-    """清除所有贴图匹配结果。
-    新增于 2026-06-08
-    """
-
-    bl_idname = __package__ + ".clear_texture_matches"
-    bl_label = "清除"
-    bl_options = {"REGISTER", "UNDO"}
-
-    def execute(self, context):
-        scene = context.scene
-        scene.node_runner.texture_matches.clear()
-        return {"FINISHED"}
-
-
-class NODE_OT_select_texture_directory(bpy.types.Operator):
-    """打开文件浏览器选择贴图资源目录。
-    新增于 2026-06-08
-    """
-
-    bl_idname = __package__ + ".select_texture_directory"
-    bl_label = "选择目录"
-    bl_options = {"REGISTER"}
-
-    directory: bpy.props.StringProperty(subtype="DIR_PATH")  # type: ignore
-
-    def execute(self, context):
-        context.scene.node_runner.texture_directory = self.directory
-        return {"FINISHED"}
-
-    def invoke(self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {"RUNNING_MODAL"}
-
-
-def _draw_texture_match_item(layout, item, mat_name):
-    """在面板中绘制单个材质对应的五通道贴图路径输入框。
-    每个通道一行，支持拖动文件放置。
-    新增于 2026-06-08
-    """
-    box = layout.box()
-    box.label(text=f"{mat_name}", icon="MATERIAL")
-
-    # Base Color
-    row = box.row(align=True)
-    row.label(text="Base Color:", icon="IMAGE_RGB")
-    row.prop(item, "basecolor_path", text="", emboss=False)
-
-    # Metallic
-    row = box.row(align=True)
-    row.label(text="Metallic:", icon="IMAGE_RGB")
-    row.prop(item, "metallic_path", text="", emboss=False)
-
-    # Roughness
-    row = box.row(align=True)
-    row.label(text="Roughness:", icon="IMAGE_RGB")
-    row.prop(item, "roughness_path", text="", emboss=False)
-
-    # Normal
-    row = box.row(align=True)
-    row.label(text="Normal:", icon="IMAGE_RGB")
-    row.prop(item, "normal_path", text="", emboss=False)
-
-    # AO
-    row = box.row(align=True)
-    row.label(text="AO:", icon="IMAGE_RGB")
-    row.prop(item, "ao_path", text="", emboss=False)
-
-
-class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
-    """自动贴图面板 - 显示在节点编辑器的侧栏中。
-    第一行：资源目录输入框（支持拖动文件夹）
-    第二行：匹配贴图按钮（显示当前选中材质数）
-    之后逐材质显示五通道匹配结果
-    最下方：一键应用按钮（显示未填数量）
-    新增于 2026-06-08
-    """
-
-    bl_label = "自动贴图"
-    bl_idname = __package__ + "_panel_auto_texture"
-    bl_space_type = "NODE_EDITOR"
-    bl_region_type = "UI"
-    bl_category = "自动贴图"
-
-    def draw(self, context):
-        layout = self.layout
-        scene = context.scene
-        node_runner = scene.node_runner
-
-        # 第一行：资源目录（支持拖动放置文件夹）
-        # 若未设置则自动填入工程文件所在目录
-        # 新增于 2026-06-08
-        if not node_runner.texture_directory and bpy.data.filepath:
-            node_runner.texture_directory = os.path.dirname(bpy.data.filepath)
-
-        row = layout.row(align=True)
-        row.label(text="资源目录:", icon="FILE_FOLDER")
-        row.prop(node_runner, "texture_directory", text="")
-        row.operator(NODE_OT_select_texture_directory.bl_idname, text="", icon="FILEBROWSER")
-
-        # 第二行：匹配贴图按钮，显示已选材质数量（去重后）
-        materials = _get_unique_materials_from_selection(context)
-        mat_count = len(materials)
-        row = layout.row(align=True)
-        row.operator(NODE_OT_match_textures.bl_idname, text=f"匹配贴图（已选 {mat_count} 个材质）", icon="VIEWZOOM")
-        row.operator(NODE_OT_clear_texture_matches.bl_idname, text="", icon="X")
-
-        # 逐材质显示匹配结果
-        if node_runner.texture_matches:
-            layout.separator()
-            for item in node_runner.texture_matches:
-                _draw_texture_match_item(layout, item, item.material_name)
-
-            # 统计未找到文件的贴图数量
-            missing = 0
-            for item in node_runner.texture_matches:
-                for attr in ["basecolor_path", "metallic_path", "roughness_path", "normal_path", "ao_path"]:
-                    path = getattr(item, attr)
-                    if path and not os.path.exists(path):
-                        missing += 1
-
-            # 一键应用按钮（显示未填数量）
-            layout.separator()
-            row = layout.row()
-            row.operator(NODE_OT_apply_textures.bl_idname, text=f"一键应用（{missing} 个未填）", icon="PLAY")
-
-
-# ============================================================
-# TextureMatchItem - 贴图匹配数据模型
-# 存储每个材质对应的五通道贴图路径
-# 新增于 2026-06-08
-# ============================================================
-
-
-class TextureMatchItem(bpy.types.PropertyGroup):
-    """每个材质对应的贴图匹配条目，包含五通道文件路径。
-    新增于 2026-06-08
-    """
-    material_name: bpy.props.StringProperty(name="Material Name")
-    basecolor_path: bpy.props.StringProperty(name="Base Color Path")
-    metallic_path: bpy.props.StringProperty(name="Metallic Path")
-    roughness_path: bpy.props.StringProperty(name="Roughness Path")
-    normal_path: bpy.props.StringProperty(name="Normal Path")
-    ao_path: bpy.props.StringProperty(name="AO Path")
-
-
-class NodeRunnerProperties(bpy.types.PropertyGroup):
-    """场景级属性组，挂载在 Scene 上存储贴图匹配状态。
-    新增于 2026-06-08
-    """
-    texture_directory: bpy.props.StringProperty(
-        name="Texture Directory",
-        description="贴图资源目录",
-        default="",
-        maxlen=1024,
-        subtype="DIR_PATH",
-    )
-    texture_matches: bpy.props.CollectionProperty(
-        name="Texture Matches",
-        type=TextureMatchItem,
-    )
-
-
-def _load_texture_matches(context):
-    """从工程目录的 nodetmp.txt 加载之前保存的匹配结果。
-    每次 Blender 启动或切换工程时调用，确保面板恢复上次工作状态。
-    新增于 2026-06-08
-    """
-    tmp_file = os.path.join(os.path.dirname(bpy.data.filepath) or os.path.expanduser("~"), "nodetmp.txt")
-    if not os.path.exists(tmp_file):
-        return
-
-    try:
-        with open(tmp_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        scene = context.scene
-        node_runner = scene.node_runner
-        node_runner.texture_directory = data.get("texture_directory", "")
-
-        for match in data.get("matches", []):
-            item = node_runner.texture_matches.add()
-            item.material_name = match.get("material_name", "")
-            item.basecolor_path = match.get("basecolor_path", "")
-            item.metallic_path = match.get("metallic_path", "")
-            item.roughness_path = match.get("roughness_path", "")
-            item.normal_path = match.get("normal_path", "")
-            item.ao_path = match.get("ao_path", "")
-    except Exception as e:
-        log.warning(f"Failed to load nodetmp.txt: {e}")
-
-
-# 属性更新回调：对 TextureMatchItem 的所有五通道属性设置自动保存
-# 每当用户手动修改某个贴图路径时，自动触发保存到 nodetmp.txt
-# 新增于 2026-06-08
-def _on_texture_matches_update(self, context):
-    """属性变化回调，自动保存当前匹配结果到 nodetmp.txt。"""
-    _save_texture_matches(context)
-
-
-TextureMatchItem.__annotations__["basecolor_path"] = bpy.props.StringProperty(
-    name="Base Color Path",
-    update=_on_texture_matches_update,
-)
-TextureMatchItem.__annotations__["metallic_path"] = bpy.props.StringProperty(
-    name="Metallic Path",
-    update=_on_texture_matches_update,
-)
-TextureMatchItem.__annotations__["roughness_path"] = bpy.props.StringProperty(
-    name="Roughness Path",
-    update=_on_texture_matches_update,
-)
-TextureMatchItem.__annotations__["normal_path"] = bpy.props.StringProperty(
-    name="Normal Path",
-    update=_on_texture_matches_update,
-)
-TextureMatchItem.__annotations__["ao_path"] = bpy.props.StringProperty(
-    name="AO Path",
-    update=_on_texture_matches_update,
-)
-
-
 def menu_draw(self, context):
     if not _supported_editor_poll(context):
         return
@@ -1513,44 +913,27 @@ def menu_draw(self, context):
     self.layout.menu(NODE_RUNNER_MT_menu.bl_idname, icon="NODE")
 
 
-# ============================================================
-# 注册 / 注销
-# 新增于 2026-06-08：添加了自动贴图相关类和属性
-# ============================================================
+# Registration
+
 
 _classes = (
-    AUTO_NODE_RUNNER_preferences,
+    NODE_RUNNER_preferences,
     NODE_RUNNER_OT_export_clipboard,
     NODE_RUNNER_OT_export_file,
     NODE_RUNNER_OT_confirm_import,
     NODE_RUNNER_OT_import_clipboard,
     NODE_RUNNER_OT_import_file,
     NODE_RUNNER_MT_menu,
-    NODE_OT_match_textures,
-    NODE_OT_apply_textures,
-    NODE_OT_clear_texture_matches,
-    NODE_OT_select_texture_directory,
-    TextureMatchItem,
-    NodeRunnerProperties,
-    NODE_RUNNER_PT_auto_texture,
 )
 
 
 def register():
     for cls in _classes:
         bpy.utils.register_class(cls)
-
-    # Register properties
-    bpy.types.Scene.node_runner = bpy.props.PointerProperty(type=NodeRunnerProperties)
-
     bpy.types.NODE_MT_context_menu.append(menu_draw)
 
 
 def unregister():
     bpy.types.NODE_MT_context_menu.remove(menu_draw)
-
-    # Unregister properties
-    del bpy.types.Scene.node_runner
-
     for cls in reversed(_classes):
         bpy.utils.unregister_class(cls)

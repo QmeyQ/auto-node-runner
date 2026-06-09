@@ -1,0 +1,65 @@
+Auto Node Runner - Colorspace Settings & GPL-3.0 Compliance Notice
+==================================================================
+
+Date: 2026-06-09
+
+1. COLORSPACE MODIFICATIONS
+----------------------------
+The following colorspace_name changes were made in the template JSON
+files (ao.json, noao.json) compared to node_runner-1.4.1 originals:
+
+ao.json changes:
+  - Metallic Image Texture: colorspace_name "sRGB" -> "Non-Color"
+    (PBR standard: metallic maps are data, not color)
+  - Roughness Image Texture: colorspace_name "sRGB" -> "Non-Color"
+    (PBR standard: roughness maps are data, not color)
+  - Normal Image Texture: colorspace_name "sRGB" -> "Non-Color"
+    (PBR standard: normal maps are data, not color)
+  - AO Image Texture: colorspace_name "sRGB" -> "sRGB" (unchanged)
+  - BaseColor Image Texture: colorspace_name "sRGB" -> "sRGB" (unchanged)
+  - Mix node blend_type: "MULTIPLY" -> "BURN"
+    (BURN blend mode produces more natural AO overlay)
+
+noao.json changes:
+  - Metallic Image Texture: colorspace_name "sRGB" -> "Non-Color"
+  - Roughness Image Texture: colorspace_name "sRGB" -> "Non-Color"
+  - Normal Image Texture: colorspace_name "sRGB" -> "Non-Color"
+  - BaseColor Image Texture: colorspace_name "sRGB" -> "sRGB" (unchanged)
+
+These follow PBR texture conventions as documented in:
+  - KhronosGroup/glTF 2.0 Specification
+    https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+  - Blender Manual: Color Space Settings
+    https://docs.blender.org/manual/en/latest/render/shader_nodes/textures/image.html
+
+2. GPL-3.0 COMPLIANCE - FILE CHANGE SUMMARY
+---------------------------------------------
+This project is a modified version of Node Runner (node_runner-1.4.1)
+by Noah Thiering, originally licensed under GPL-3.0.
+
+MODIFIED FILES (from node_runner-1.4.1):
+  - __init__.py: Added i18n/panel module registration, fault-tolerant
+    unregister with history.cleanup_nodetmp(), logging import
+  - operators.py: Added Auto Texture operators, property groups,
+    preferences with language selection, i18n/history integration,
+    template-based node application, fuzzy material name matching,
+    external match_rules.json loading. Removed panel class.
+  - ao.json: Changed colorspace_name and blend_type as listed above
+  - noao.json: Changed colorspace_name as listed above
+  - blender_manifest.toml: Changed id, name, version for addon isolation
+
+NEW FILES (not in node_runner-1.4.1):
+  - i18n.py: Internationalization module (GPL-3.0)
+  - history.py: History persistence module for nodetmp.txt (GPL-3.0)
+  - panel.py: Auto Texture panel UI module (GPL-3.0)
+  - match_rules.json: Regex match rules configuration (GPL-3.0)
+  - COLORSPACE_NOTICE.txt: This notice file (GPL-3.0)
+
+UNCHANGED FILES (identical to node_runner-1.4.1):
+  - constants.py, serialize.py, deserialize.py, encoding.py,
+    node_data.py, conftest.py, LICENSE, README.md, .gitignore,
+    .pylintrc, release.md, CODE_WIKI.md, mkdocs.yml,
+    tests/ directory, docs/ directory, .github/ directory
+
+All modifications are released under the same GPL-3.0 license
+as the original Node Runner project, as required by the license terms.
