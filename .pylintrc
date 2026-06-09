@@ -1,0 +1,70 @@
+[MASTER]
+# Use multiple processes to speed up pylint
+jobs=1
+
+[MESSAGES CONTROL]
+# Disable rules incompatible with Blender addon development patterns:
+#
+# C0103: invalid-name
+#   Blender requires snake_case operator/menu class names like
+#   NODE_RUNNER_OT_export, NODE_MT_context_menu, bpy_prop_collection.
+#
+# C0115: missing-class-docstring
+# C0116: missing-function-docstring
+#   Test methods use descriptive names; Blender callbacks (draw, execute,
+#   invoke) are self-documenting; mock stubs don't need docstrings.
+#
+# W0613: unused-argument
+#   Blender callbacks require specific signatures (context, event) even
+#   when not all arguments are used.
+#
+# R0801: duplicate-code
+#   Test data fixtures naturally repeat across test files.
+#
+# R0903: too-few-public-methods
+#   Mock stubs, Blender operators, and preferences classes are minimal
+#   by design.
+#
+# R0902: too-many-instance-attributes
+# R0913: too-many-arguments
+# R0917: too-many-positional-arguments
+# R0914: too-many-locals
+# R0912: too-many-branches
+# R0915: too-many-statements
+#   Complex deserialization logic and mock constructors naturally have
+#   many locals/arguments/branches. Splitting further would harm
+#   readability.
+#
+# W0201: attribute-defined-outside-init
+#   Blender operators set attributes in invoke() that are used in
+#   execute(), which is the standard pattern.
+#
+# C0415: import-outside-toplevel
+#   Some imports (bpy, mathutils) can only be performed inside functions
+#   when running under the test harness.
+#
+# W0622: redefining-builtin
+#   Blender API uses 'type' as a parameter name (e.g. nodes.new(type=...)).
+#
+# import-error
+#   bpy/mathutils are not installable via pip; mocked in tests.
+disable=
+    C0103,
+    C0115,
+    C0116,
+    W0613,
+    R0801,
+    R0903,
+    R0902,
+    R0913,
+    R0917,
+    R0914,
+    R0912,
+    R0915,
+    W0201,
+    C0415,
+    W0622,
+    import-error
+
+[FORMAT]
+max-line-length=100
