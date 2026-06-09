@@ -233,6 +233,9 @@ class AUTO_NODE_RUNNER_preferences(bpy.types.AddonPreferences):
         layout.prop(self, "import_at_cursor")
         layout.prop(self, "select_imported")
         layout.prop(self, "language")
+        # [Auto Texture] Uninstall button - removes nodetmp.txt and cleans up - Modified: 2026-06-09
+        layout.separator()
+        layout.operator(_pkg + ".uninstall_addon", icon="TRASH")
 
 
 def _get_prefs(context):
@@ -241,6 +244,48 @@ def _get_prefs(context):
     if prefs:
         return prefs.preferences
     return None
+
+
+# [Auto Texture] Uninstall operator - cleans data then removes the addon - Modified: 2026-06-09
+class NODE_OT_uninstall_addon(bpy.types.Operator):
+    """Clean up persistent data and uninstall this addon"""
+
+    bl_idname = _pkg + ".uninstall_addon"
+    bl_label = "Uninstall"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        from . import history
+        history.cleanup_nodetmp()
+        addon_pkg = __package__
+        if addon_pkg in context.preferences.addons:
+            try:
+                bpy.ops.preferences.addon_disable(module=addon_pkg)
+            except Exception:
+                pass
+            try:
+                bpy.ops.preferences.addon_remove(module=addon_pkg)
+            except Exception:
+                pass
+        return {"FINISHED"}
+
+
+# [Auto Texture] Set texture directory operator (safe way to set from panel) - Modified: 2026-06-09
+class NODE_OT_set_texture_directory(bpy.types.Operator):
+    """Set the resource directory for texture matching"""
+
+    bl_idname = _pkg + ".set_texture_directory"
+    bl_label = "Set Directory"
+    bl_options = {"REGISTER", "UNDO"}
+
+    directory: bpy.props.StringProperty(subtype="DIR_PATH")
+
+    def execute(self, context):
+        scene = context.scene
+        node_runner = scene.node_runner
+        if self.directory and os.path.isdir(self.directory):
+            node_runner.texture_directory = self.directory
+        return {"FINISHED"}
 
 
 # Shared helpers
@@ -915,7 +960,7 @@ class NODE_RUNNER_OT_confirm_import(bpy.types.Operator):
 class NODE_RUNNER_MT_menu(bpy.types.Menu):
     """Node Runner submenu"""
 
-    bl_idname = _pkg + "_menu"
+    bl_idname = _pkg + "_MT_menu"
     bl_label = "Node Runner"
 
     def draw(self, context):
@@ -1105,11 +1150,15 @@ class NODE_OT_match_textures(bpy.types.Operator):
         scene = context.scene
         node_runner = scene.node_runner
 
-        if not node_runner.texture_directory:
-            self.report({"WARNING"}, i18n.get_text("message.select_directory_first"))
-            return {"CANCELLED"}
-
+        # [Auto Texture] If no directory set, try blend file directory - Modified: 2026-06-09
         tex_dir = node_runner.texture_directory
+        if not tex_dir:
+            tex_dir = bpy.path.abspath("//")
+            if tex_dir and os.path.isdir(tex_dir):
+                node_runner.texture_directory = tex_dir
+            else:
+                self.report({"WARNING"}, i18n.get_text("message.select_directory_first"))
+                return {"CANCELLED"}
 
         if ".." in tex_dir.split(os.sep) or ".." in tex_dir.split("/"):
             self.report({"WARNING"}, i18n.get_text("message.invalid_directory"))
@@ -1525,8 +1574,8 @@ TextureMatchItem.__annotations__["ao_path"] = bpy.props.StringProperty(
 
 class NodeRunnerProperties(bpy.types.PropertyGroup):
     texture_directory: bpy.props.StringProperty(
-        name="Texture Directory",
-        description="Directory containing texture files",
+        name="",
+        description="Resource directory for textures (defaults to blend file directory)",
         default="",
         maxlen=1024,
         subtype="DIR_PATH",
@@ -1559,6 +1608,8 @@ _classes = (
     NODE_OT_apply_textures,
     NODE_OT_clear_texture_matches,
     NODE_OT_select_texture_directory,
+    NODE_OT_set_texture_directory,
+    NODE_OT_uninstall_addon,
     TextureMatchItem,
     NodeRunnerProperties,
 )

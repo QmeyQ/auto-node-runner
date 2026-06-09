@@ -43,9 +43,10 @@ def register():
 
 
 def unregister():
-    """Unregister all operators and menu entries, with full cleanup."""
-    # [Auto Texture] Unregister with fault-tolerant cleanup and nodetmp removal - Modified: 2026-06-09
-    from . import operators, i18n, panel, history
+    """Unregister all operators and menu entries, with fault-tolerant cleanup."""
+    # [Auto Texture] Unregister only - does NOT delete nodetmp.txt or user data.
+    # Use the separate Uninstall operator in preferences to fully remove data. - Modified: 2026-06-09
+    from . import operators, i18n, panel
 
     try:
         panel.unregister()
@@ -56,11 +57,6 @@ def unregister():
         operators.unregister()
     except Exception as e:
         log.warning(f"Operators unregister failed: {e}")
-
-    try:
-        history.cleanup_nodetmp()
-    except Exception as e:
-        log.warning(f"Cleanup nodetmp failed: {e}")
 
     try:
         i18n.unregister()
