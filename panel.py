@@ -64,6 +64,7 @@ def _count_missing(item):
 
 
 # [Auto Texture] Draw the resource directory row - Modified: 2026-06-09
+# [Auto Texture] Draw the resource directory row - Modified: 2026-06-09
 def _draw_directory_row(layout, node_runner):
     row = layout.row(align=True)
     row.prop(node_runner, "texture_directory", text="")
