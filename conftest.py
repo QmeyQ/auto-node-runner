@@ -183,6 +183,17 @@ class Menu(_TypeBase):
     bl_label = ""
 
 
+class PropertyGroup(_TypeBase):
+    pass
+
+
+class Panel(_TypeBase):
+    bl_idname = ""
+    bl_label = ""
+    bl_space_type = ""
+    bl_region_type = ""
+
+
 class ColorManagedInputColorspaceSettings(_TypeBase):
     name = ""
 
@@ -237,6 +248,8 @@ for _name, _cls in [
     ("Operator", Operator),
     ("AddonPreferences", AddonPreferences),
     ("Menu", Menu),
+    ("PropertyGroup", PropertyGroup),
+    ("Panel", Panel),
     ("ColorManagedInputColorspaceSettings", ColorManagedInputColorspaceSettings),
     ("NodeLink", NodeLink),
     ("NodeTree", NodeTree),
@@ -250,6 +263,10 @@ bpy_props = types.ModuleType("bpy.props")
 bpy_props.StringProperty = lambda **kw: ""
 bpy_props.BoolProperty = lambda **kw: False
 bpy_props.EnumProperty = lambda **kw: ""
+bpy_props.IntProperty = lambda **kw: 0
+bpy_props.FloatProperty = lambda **kw: 0.0
+bpy_props.CollectionProperty = lambda **kw: []
+bpy_props.PointerProperty = lambda **kw: None
 bpy_mod.props = bpy_props
 
 bpy_mod.data = MagicMock()

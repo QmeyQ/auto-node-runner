@@ -10,7 +10,8 @@
         "color",
         "base",
         "bc",
-        "col"
+        "TEXTURE",
+        "B"
       ]
     },
     "metallic": {
@@ -21,7 +22,8 @@
         "metalness",
         "mt",
         "metallicmap",
-        "metalmap"
+        "metalmap",
+        "M"
       ]
     },
     "roughness": {
@@ -31,7 +33,8 @@
         "rough",
         "rgh",
         "roughmap",
-        "roughnessmap"
+        "roughnessmap",
+        "R"
       ]
     },
     "normal": {
@@ -42,7 +45,8 @@
         "nrm",
         "nor",
         "normalmap",
-        "nmap"
+        "nmap",
+        "N"
       ]
     },
     "ao": {
@@ -50,11 +54,47 @@
       "patterns": [
         "ambient_occlusion",
         "ambientocclusion",
-        "ao",
         "occlusion",
-        "occ",
+        "occlusionmap",
         "aomap",
-        "occlusionmap"
+        "ao",
+        "occ",
+        "A"
+      ]
+    },
+    "alpha": {
+      "description": "Alpha / Opacity / Transparency texture",
+      "patterns": [
+        "transparency",
+        "opacity",
+        "alpha"
+      ]
+    },
+    "displacement": {
+      "description": "Displacement / Height texture",
+      "patterns": [
+        "displacement",
+        "height",
+        "disp",
+        "D"
+      ]
+    },
+    "specular": {
+      "description": "Specular texture",
+      "patterns": [
+        "specular",
+        "spec",
+        "S"
+      ]
+    },
+    "emission": {
+      "description": "Emission / Emissive / Glow texture",
+      "patterns": [
+        "emission",
+        "emissive",
+        "emit",
+        "glow",
+        "E"
       ]
     }
   },

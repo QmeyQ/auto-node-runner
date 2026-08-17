@@ -1,0 +1,2365 @@
+{
+  "nodes": {
+    "Principled BSDF": {
+      "location": [
+        136.6460723876953,
+        -584.86572265625
+      ],
+      "width": 240.0,
+      "height": 100.0,
+      "name": "Principled BSDF",
+      "inputs": [
+        [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929,
+          1.0
+        ],
+        0.0,
+        0.5,
+        1.5,
+        1.0,
+        false,
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        0.0,
+        0.0,
+        0.0,
+        [
+          1.0,
+          0.20000000298023224,
+          0.10000000149011612
+        ],
+        1.399999976158142,
+        0.0,
+        0.5,
+        0.5,
+        [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        0.0,
+        0.0,
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        0.0,
+        0.029999999329447746,
+        1.5,
+        1.5,
+        [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        0.5,
+        0.5,
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        0.0,
+        1.3300000429153442,
+        1.3300000429153442
+      ],
+      "outputs": [
+        null
+      ],
+      "use_custom_color": false,
+      "color": [
+        0.6079999804496765,
+        0.6079999804496765,
+        0.6079999804496765
+      ],
+      "show_options": true,
+      "show_preview": false,
+      "mute": false,
+      "show_texture": false,
+      "distribution": "MULTI_GGX",
+      "subsurface_method": "RANDOM_WALK",
+      "type": "ShaderNodeBsdfPrincipled",
+      "label": "",
+      "location_absolute": [
+        136.6460723876953,
+        -584.86572265625
+      ]
+    },
+    "Material Output": {
+      "location": [
+        472.2208251953125,
+        -712.6063842773438
+      ],
+      "width": 140.0,
+      "height": 100.0,
+      "name": "Material Output",
+      "inputs": [
+        null,
+        null,
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        0.0
+      ],
+      "outputs": [],
+      "use_custom_color": false,
+      "color": [
+        0.6079999804496765,
+        0.6079999804496765,
+        0.6079999804496765
+      ],
+      "show_options": true,
+      "show_preview": false,
+      "mute": false,
+      "show_texture": false,
+      "is_active_output": true,
+      "target": "ALL",
+      "type": "ShaderNodeOutputMaterial",
+      "label": "",
+      "location_absolute": [
+        472.2208251953125,
+        -712.6063842773438
+      ]
+    },
+    "Group": {
+      "location": [
+        -194.206298828125,
+        -651.6157836914062
+      ],
+      "width": 140.0,
+      "height": 100.0,
+      "name": "Group",
+      "inputs": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "outputs": [
+        [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929,
+          1.0
+        ],
+        [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929,
+          1.0
+        ],
+        [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929,
+          1.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929,
+          1.0
+        ],
+        [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929,
+          1.0
+        ],
+        [
+          0.800000011920929,
+          0.800000011920929,
+          0.800000011920929,
+          1.0
+        ]
+      ],
+      "use_custom_color": false,
+      "color": [
+        0.6079999804496765,
+        0.6079999804496765,
+        0.6079999804496765
+      ],
+      "show_options": true,
+      "show_preview": false,
+      "mute": false,
+      "show_texture": false,
+      "node_tree": {
+        "nodes": {
+          "Image Texture": {
+            "location": [
+              -163.85623168945312,
+              552.023193359375
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_albedo.jpg.001",
+              "filepath": "X:\\blinn1SG.jpg",
+              "colorspace_name": "sRGB"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -163.85623168945312,
+              552.023193359375
+            ]
+          },
+          "Image Texture.001": {
+            "location": [
+              -158.87071228027344,
+              4.290343284606934
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.001",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_metallic.jpg.001",
+              "filepath": "X:\\blinn1SG_metallic.jpg",
+              "colorspace_name": "Non-Color"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -158.87071228027344,
+              4.290343284606934
+            ]
+          },
+          "Image Texture.002": {
+            "location": [
+              -147.24024963378906,
+              -881.54248046875
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.002",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_Normal.jpg.002",
+              "filepath": "X:\\blinn1SG_normal.jpg",
+              "colorspace_name": "Non-Color"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -147.24024963378906,
+              -881.54248046875
+            ]
+          },
+          "Image Texture.003": {
+            "location": [
+              -157.2676239013672,
+              -294.43035888671875
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.003",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_roughness.jpg.001",
+              "filepath": "X:\\blinn1SG_roughness.jpg",
+              "colorspace_name": "Non-Color"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -157.2676239013672,
+              -294.43035888671875
+            ]
+          },
+          "Group Output": {
+            "location": [
+              730.6417846679688,
+              -685.20361328125
+            ],
+            "width": 140.0,
+            "height": 100.0,
+            "name": "Group Output",
+            "input_order": [
+              {
+                "type": "NodeSocketColor",
+                "name": "Base Color",
+                "identifier": "Socket_0",
+                "default": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              {
+                "type": "NodeSocketColor",
+                "name": "Metallic",
+                "identifier": "Socket_1",
+                "default": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              {
+                "type": "NodeSocketColor",
+                "name": "Roughness",
+                "identifier": "Socket_2",
+                "default": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              {
+                "type": "NodeSocketVector",
+                "name": "Normal",
+                "identifier": "Socket_3",
+                "default": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "type": "NodeSocketVector",
+                "name": "Displacement",
+                "identifier": "Socket_6",
+                "default": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "type": "NodeSocketColor",
+                "name": "Emission",
+                "identifier": "Socket_7",
+                "default": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              {
+                "type": "NodeSocketColor",
+                "name": "Specular",
+                "identifier": "Socket_8",
+                "default": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              {
+                "type": "NodeSocketColor",
+                "name": "Alpha",
+                "identifier": "Socket_9",
+                "default": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              }
+            ],
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              null
+            ],
+            "output_order": [],
+            "outputs": [],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "is_active_output": true,
+            "type": "NodeGroupOutput",
+            "label": "",
+            "location_absolute": [
+              730.6417846679688,
+              -685.20361328125
+            ]
+          },
+          "Group Input": {
+            "location": [
+              -837.6754150390625,
+              -5.362559795379639
+            ],
+            "width": 140.0,
+            "height": 100.0,
+            "name": "Group Input",
+            "input_order": [],
+            "inputs": [],
+            "output_order": [
+              {
+                "type": "NodeSocketVector",
+                "name": "Vector",
+                "identifier": "Socket_4",
+                "default": [
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "outputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              null
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": true,
+            "mute": false,
+            "show_texture": false,
+            "type": "NodeGroupInput",
+            "label": "",
+            "location_absolute": [
+              -837.6754150390625,
+              -5.362559795379639
+            ]
+          },
+          "Normal Map": {
+            "location": [
+              215.79336547851562,
+              -684.5410766601562
+            ],
+            "width": 150.0,
+            "height": 100.0,
+            "name": "Normal Map",
+            "inputs": [
+              1.0,
+              [
+                0.5,
+                0.5,
+                1.0,
+                1.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "space": "TANGENT",
+            "uv_map": "",
+            "convention": "OPENGL",
+            "base": "DISPLACED",
+            "type": "ShaderNodeNormalMap",
+            "label": "",
+            "location_absolute": [
+              215.79336547851562,
+              -684.5410766601562
+            ]
+          },
+          "Image Texture.004": {
+            "location": [
+              -162.5684051513672,
+              274.03106689453125
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.004",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_albedo_AO.jpg",
+              "filepath": "X:\\blinn1SG_AO.jpg",
+              "colorspace_name": "Non-Color"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -162.5684051513672,
+              274.03106689453125
+            ]
+          },
+          "Mix": {
+            "location": [
+              210.52459716796875,
+              339.8854675292969
+            ],
+            "width": 140.0,
+            "height": 100.0,
+            "name": "Mix",
+            "inputs": [
+              0.5,
+              [
+                0.5,
+                0.5,
+                0.5
+              ],
+              0.0,
+              0.0,
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.5,
+                0.5,
+                0.5,
+                1.0
+              ],
+              [
+                0.5,
+                0.5,
+                0.5,
+                1.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              0.0,
+              [
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "data_type": "RGBA",
+            "factor_mode": "UNIFORM",
+            "blend_type": "MULTIPLY",
+            "clamp_factor": false,
+            "clamp_result": false,
+            "type": "ShaderNodeMix",
+            "label": "",
+            "location_absolute": [
+              210.52459716796875,
+              339.8854675292969
+            ]
+          },
+          "Bump": {
+            "location": [
+              207.63587951660156,
+              -466.55975341796875
+            ],
+            "width": 140.0,
+            "height": 100.0,
+            "name": "Bump",
+            "inputs": [
+              1.0,
+              0.0010000000474974513,
+              0.10000000149011612,
+              1.0,
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "invert": false,
+            "type": "ShaderNodeBump",
+            "label": "",
+            "location_absolute": [
+              207.63587951660156,
+              -466.55975341796875
+            ]
+          },
+          "Image Texture.005": {
+            "location": [
+              -152.51376342773438,
+              -585.5564575195312
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.005",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_bump.jpg.001",
+              "filepath": "X:\\blinn1SG_bump.jpg",
+              "colorspace_name": "Non-Color"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Cubic",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -152.51376342773438,
+              -585.5564575195312
+            ]
+          },
+          "Image Texture.006": {
+            "location": [
+              -151.71652221679688,
+              -1173.6748046875
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.006",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_displacement.jpg.001",
+              "filepath": "X:\\blinn1SG_alpha.jpg",
+              "colorspace_name": "sRGB"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -151.71652221679688,
+              -1173.6748046875
+            ]
+          },
+          "Displacement": {
+            "location": [
+              169.45481872558594,
+              -1053.4639892578125
+            ],
+            "width": 140.0,
+            "height": 100.0,
+            "name": "Displacement",
+            "inputs": [
+              0.0,
+              0.5,
+              0.009999999776482582,
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "space": "OBJECT",
+            "type": "ShaderNodeDisplacement",
+            "label": "",
+            "location_absolute": [
+              169.45481872558594,
+              -1053.4639892578125
+            ]
+          },
+          "Image Texture.007": {
+            "location": [
+              -153.09738159179688,
+              -1463.97900390625
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.007",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": true,
+            "image": {
+              "name": "blinn1SG_emisssion.jpg",
+              "filepath": "X:\\blinn1SG_alpha.jpg",
+              "colorspace_name": "sRGB"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -153.09738159179688,
+              -1463.97900390625
+            ]
+          },
+          "Image Texture.008": {
+            "location": [
+              -154.07249450683594,
+              -1745.90478515625
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.008",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_specular.jpg",
+              "filepath": "X:\\blinn1SG_alpha.jpg",
+              "colorspace_name": "sRGB"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -154.07249450683594,
+              -1745.90478515625
+            ]
+          },
+          "Image Texture.009": {
+            "location": [
+              -156.86114501953125,
+              -2031.58447265625
+            ],
+            "width": 240.0,
+            "height": 100.0,
+            "name": "Image Texture.009",
+            "inputs": [
+              [
+                0.0,
+                0.0,
+                0.0
+              ]
+            ],
+            "outputs": [
+              [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+              ],
+              0.0
+            ],
+            "use_custom_color": false,
+            "color": [
+              0.6079999804496765,
+              0.6079999804496765,
+              0.6079999804496765
+            ],
+            "show_options": true,
+            "show_preview": false,
+            "mute": false,
+            "show_texture": false,
+            "image": {
+              "name": "blinn1SG_alhpa.jpg",
+              "filepath": "X:\\blinn1SG_alpha.jpg",
+              "colorspace_name": "sRGB"
+            },
+            "texture_mapping": {
+              "mapping": "FLAT",
+              "mapping_x": "X",
+              "mapping_y": "Y",
+              "mapping_z": "Z",
+              "max": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "min": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "translation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "use_max": false,
+              "use_min": false,
+              "vector_type": "POINT"
+            },
+            "color_mapping": {
+              "blend_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929
+              ],
+              "blend_factor": 0.0,
+              "blend_type": "MIX",
+              "brightness": 1.0,
+              "color_ramp": {
+                "color_mode": "RGB",
+                "hue_interpolation": "NEAR",
+                "interpolation": "LINEAR",
+                "elements": [
+                  {
+                    "position": 0.0,
+                    "color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  {
+                    "position": 1.0,
+                    "color": [
+                      1.0,
+                      1.0,
+                      1.0,
+                      1.0
+                    ]
+                  }
+                ]
+              },
+              "contrast": 1.0,
+              "saturation": 1.0,
+              "use_color_ramp": false
+            },
+            "projection": "FLAT",
+            "interpolation": "Linear",
+            "projection_blend": 0.0,
+            "extension": "REPEAT",
+            "type": "ShaderNodeTexImage",
+            "label": "",
+            "location_absolute": [
+              -156.86114501953125,
+              -2031.58447265625
+            ]
+          }
+        },
+        "links": [
+          {
+            "from_node": "Image Texture.003",
+            "to_node": "Group Output",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Roughness",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "Socket_2"
+          },
+          {
+            "from_node": "Image Texture.001",
+            "to_node": "Group Output",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Metallic",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "Socket_1"
+          },
+          {
+            "from_node": "Image Texture.002",
+            "to_node": "Normal Map",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Color",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "Color"
+          },
+          {
+            "from_node": "Image Texture",
+            "to_node": "Mix",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "A",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "A_Color"
+          },
+          {
+            "from_node": "Mix",
+            "to_node": "Group Output",
+            "from_socket": "Result",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Result_Color",
+            "to_socket": "Base Color",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "Socket_0"
+          },
+          {
+            "from_node": "Image Texture.004",
+            "to_node": "Mix",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "B",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "B_Color"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.004",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.001",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.005",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.002",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.003",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Image Texture.005",
+            "to_node": "Bump",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Height",
+            "to_socket_type": "NodeSocketFloat",
+            "to_socket_identifier": "Height"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.006",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Image Texture.006",
+            "to_node": "Displacement",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Height",
+            "to_socket_type": "NodeSocketFloat",
+            "to_socket_identifier": "Height"
+          },
+          {
+            "from_node": "Displacement",
+            "to_node": "Group Output",
+            "from_socket": "Displacement",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Displacement",
+            "to_socket": "Displacement",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Socket_6"
+          },
+          {
+            "from_node": "Image Texture.007",
+            "to_node": "Group Output",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Emission",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "Socket_7"
+          },
+          {
+            "from_node": "Normal Map",
+            "to_node": "Bump",
+            "from_socket": "Normal",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Normal",
+            "to_socket": "Normal",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Normal"
+          },
+          {
+            "from_node": "Bump",
+            "to_node": "Group Output",
+            "from_socket": "Normal",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Normal",
+            "to_socket": "Normal",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Socket_3"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.007",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Image Texture.008",
+            "to_node": "Group Output",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Specular",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "Socket_8"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.008",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Group Input",
+            "to_node": "Image Texture.009",
+            "from_socket": "Vector",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Socket_4",
+            "to_socket": "Vector",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Vector"
+          },
+          {
+            "from_node": "Image Texture.009",
+            "to_node": "Group Output",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Alpha",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "Socket_9"
+          }
+        ],
+        "name": "Textrures",
+        "tree_type": "ShaderNodeTree"
+      },
+      "type": "ShaderNodeGroup",
+      "label": "",
+      "location_absolute": [
+        -194.206298828125,
+        -651.6157836914062
+      ]
+    },
+    "Texture Coordinate": {
+      "location": [
+        -621.030517578125,
+        -665.4625244140625
+      ],
+      "width": 140.0,
+      "height": 100.0,
+      "name": "Texture Coordinate",
+      "inputs": [],
+      "outputs": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "use_custom_color": false,
+      "color": [
+        0.6079999804496765,
+        0.6079999804496765,
+        0.6079999804496765
+      ],
+      "show_options": true,
+      "show_preview": false,
+      "mute": false,
+      "show_texture": false,
+      "from_instancer": false,
+      "type": "ShaderNodeTexCoord",
+      "label": "",
+      "location_absolute": [
+        -621.030517578125,
+        -665.4625244140625
+      ]
+    },
+    "Mapping": {
+      "location": [
+        -402.90740966796875,
+        -631.990234375
+      ],
+      "width": 140.0,
+      "height": 100.0,
+      "name": "Mapping",
+      "inputs": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ]
+      ],
+      "outputs": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "use_custom_color": false,
+      "color": [
+        0.6079999804496765,
+        0.6079999804496765,
+        0.6079999804496765
+      ],
+      "show_options": true,
+      "show_preview": false,
+      "mute": false,
+      "show_texture": false,
+      "vector_type": "POINT",
+      "type": "ShaderNodeMapping",
+      "label": "",
+      "location_absolute": [
+        -402.90740966796875,
+        -631.990234375
+      ]
+    }
+  },
+  "links": [
+    {
+      "from_node": "Group",
+      "to_node": "Principled BSDF",
+      "from_socket": "Base Color",
+      "from_socket_type": "NodeSocketColor",
+      "from_socket_identifier": "Socket_0",
+      "to_socket": "Base Color",
+      "to_socket_type": "NodeSocketColor",
+      "to_socket_identifier": "Base Color"
+    },
+    {
+      "from_node": "Group",
+      "to_node": "Principled BSDF",
+      "from_socket": "Metallic",
+      "from_socket_type": "NodeSocketColor",
+      "from_socket_identifier": "Socket_1",
+      "to_socket": "Metallic",
+      "to_socket_type": "NodeSocketFloatFactor",
+      "to_socket_identifier": "Metallic"
+    },
+    {
+      "from_node": "Group",
+      "to_node": "Principled BSDF",
+      "from_socket": "Roughness",
+      "from_socket_type": "NodeSocketColor",
+      "from_socket_identifier": "Socket_2",
+      "to_socket": "Roughness",
+      "to_socket_type": "NodeSocketFloatFactor",
+      "to_socket_identifier": "Roughness"
+    },
+    {
+      "from_node": "Group",
+      "to_node": "Principled BSDF",
+      "from_socket": "Normal",
+      "from_socket_type": "NodeSocketVector",
+      "from_socket_identifier": "Socket_3",
+      "to_socket": "Normal",
+      "to_socket_type": "NodeSocketVector",
+      "to_socket_identifier": "Normal"
+    },
+    {
+      "from_node": "Group",
+      "to_node": "Principled BSDF",
+      "from_socket": "Emission",
+      "from_socket_type": "NodeSocketColor",
+      "from_socket_identifier": "Socket_7",
+      "to_socket": "Specular Tint",
+      "to_socket_type": "NodeSocketColor",
+      "to_socket_identifier": "Specular Tint"
+    },
+    {
+      "from_node": "Group",
+      "to_node": "Material Output",
+      "from_socket": "Displacement",
+      "from_socket_type": "NodeSocketVector",
+      "from_socket_identifier": "Socket_6",
+      "to_socket": "Displacement",
+      "to_socket_type": "NodeSocketVector",
+      "to_socket_identifier": "Displacement"
+    },
+    {
+      "from_node": "Group",
+      "to_node": "Principled BSDF",
+      "from_socket": "Specular",
+      "from_socket_type": "NodeSocketColor",
+      "from_socket_identifier": "Socket_8",
+      "to_socket": "Emission Color",
+      "to_socket_type": "NodeSocketColor",
+      "to_socket_identifier": "Emission Color"
+    },
+    {
+      "from_node": "Principled BSDF",
+      "to_node": "Material Output",
+      "from_socket": "BSDF",
+      "from_socket_type": "NodeSocketShader",
+      "from_socket_identifier": "BSDF",
+      "to_socket": "Surface",
+      "to_socket_type": "NodeSocketShader",
+      "to_socket_identifier": "Surface"
+    },
+    {
+      "from_node": "Group",
+      "to_node": "Principled BSDF",
+      "from_socket": "Alpha",
+      "from_socket_type": "NodeSocketColor",
+      "from_socket_identifier": "Socket_9",
+      "to_socket": "Alpha",
+      "to_socket_type": "NodeSocketFloatFactor",
+      "to_socket_identifier": "Alpha"
+    },
+    {
+      "from_node": "Mapping",
+      "to_node": "Group",
+      "from_socket": "Vector",
+      "from_socket_type": "NodeSocketVector",
+      "from_socket_identifier": "Vector",
+      "to_socket": "Vector",
+      "to_socket_type": "NodeSocketVector",
+      "to_socket_identifier": "Socket_4"
+    },
+    {
+      "from_node": "Texture Coordinate",
+      "to_node": "Mapping",
+      "from_socket": "UV",
+      "from_socket_type": "NodeSocketVector",
+      "from_socket_identifier": "UV",
+      "to_socket": "Vector",
+      "to_socket_type": "NodeSocketVector",
+      "to_socket_identifier": "Vector"
+    }
+  ],
+  "name": "Shader Nodetree",
+  "tree_type": "ShaderNodeTree",
+  "blender_version": "5.3.0",
+  "export_name": "MyNodes"
+}

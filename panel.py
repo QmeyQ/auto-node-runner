@@ -20,20 +20,21 @@ import bpy
 
 from . import i18n
 from . import history
+from . import operators
 
 _PKG = __package__.rpartition(".")[2] if "." in __package__ else __package__
 
-# [Auto Texture] Texture type tuples without AO, used for missing count (AO excluded) - Modified: 2026-06-09
-_TEXTURE_TYPES_NO_AO = (
+# [Auto Texture] Texture type tuples for all 9 PBR slots - Modified: 2026-08-16
+_TEXTURE_TYPES = (
     ("basecolor_path", "label.basecolor", "IMAGE_RGB"),
     ("metallic_path", "label.metallic", "IMAGE_RGB"),
     ("roughness_path", "label.roughness", "IMAGE_RGB"),
     ("normal_path", "label.normal", "IMAGE_RGB"),
-)
-
-# [Auto Texture] Full texture type tuples including AO (AO excluded from missing count) - Modified: 2026-06-09
-_TEXTURE_TYPES = _TEXTURE_TYPES_NO_AO + (
     ("ao_path", "label.ao", "IMAGE_RGB"),
+    ("alpha_path", "label.alpha", "IMAGE_RGB"),
+    ("displacement_path", "label.displacement", "IMAGE_RGB"),
+    ("specular_path", "label.specular", "IMAGE_RGB"),
+    ("emission_path", "label.emission", "IMAGE_RGB"),
 )
 
 _HISTORY_LOADED_FLAG = "_auto_texture_history_loaded"
@@ -52,21 +53,24 @@ def _get_unique_materials_from_selection(context):
     return materials
 
 
-# [Auto Texture] Count missing texture paths (AO excluded, counts empty or non-existent paths) - Modified: 2026-06-09
+# [Auto Texture] Count missing texture paths (counts empty or non-existent paths) - Modified: 2026-08-16
 def _count_missing(item):
     missing = 0
-    for attr, _, _ in _TEXTURE_TYPES_NO_AO:
+    for attr, _, _ in _TEXTURE_TYPES:
         path = getattr(item, attr, "")
         if not path or not os.path.exists(path):
             missing += 1
     return missing
 
 
-# [Auto Texture] Draw the resource directory selection row - Modified: 2026-06-09
+# [Auto Texture] Draw the resource directory row - Modified: 2026-06-09
 def _draw_directory_row(layout, node_runner):
     row = layout.row(align=True)
-    row.label(text=i18n.get_text("label.resource_directory"), icon="FILE_FOLDER")
     row.prop(node_runner, "texture_directory", text="")
+    if not node_runner.texture_directory:
+        blend_dir = bpy.path.abspath("//")
+        if blend_dir and os.path.isdir(blend_dir):
+            row.label(text=blend_dir, icon="INFO")
 
 
 # [Auto Texture] Draw the match/clear textures button row - Modified: 2026-06-09
@@ -92,12 +96,20 @@ def _draw_texture_row(box, item, tex_attr, label_key, icon_name):
     row.prop(item, tex_attr, text="", emboss=True)
 
 
-# [Auto Texture] Draw a material block with all texture rows - Modified: 2026-06-09
+# [Auto Texture] Draw a material block with collapsible texture rows - Modified: 2026-08-16
 def _draw_material_block(layout, item):
     box = layout.box()
-    box.label(text=item.material_name, icon="MATERIAL")
+    icon = "TRIA_DOWN" if item.is_collapsed else "TRIA_RIGHT"
+    box.operator(
+        _PKG + ".toggle_collapse",
+        text=item.material_name,
+        icon=icon,
+        emboss=False,
+    ).material_name = item.material_name
 
-    not_found_text = i18n.get_text("message.texture_not_found")
+    if item.is_collapsed:
+        return
+
     for tex_attr, label_key, icon_name in _TEXTURE_TYPES:
         _draw_texture_row(box, item, tex_attr, label_key, icon_name)
 
@@ -113,10 +125,27 @@ def _draw_apply_button_row(layout, missing_count):
     )
 
 
+# [Auto Texture] Draw AI adjustment input + button row - Modified: 2026-08-16
+def _draw_ai_adjust_row(layout, node_runner):
+    row = layout.row(align=True)
+    row.prop(node_runner, "ai_prompt", text="")
+    if node_runner.ai_state == "ADJUSTING":
+        row.enabled = False
+        row.operator(_PKG + ".ai_adjust", text=i18n.get_text("button.ai_adjusting"))
+    else:
+        row.operator(_PKG + ".ai_adjust", text=i18n.get_text("button.ai_adjust"))
+
+
+# [Auto Texture] Draw AI model selector dropdown - Modified: 2026-08-16
+def _draw_ai_model_selector(layout, node_runner):
+    row = layout.row()
+    row.prop(node_runner, "ai_model", text="")
+
+
 # [Auto Texture] VIEW_3D panel class for Auto Texture UI - Modified: 2026-06-09
-class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
+class AUTO_TEXTURE_PT_main(bpy.types.Panel):
     bl_label = "Auto Texture"
-    bl_idname = _PKG + "_panel_auto_texture"
+    bl_idname = "AUTO_TEXTURE_PT_main"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Auto Texture"
@@ -125,21 +154,11 @@ class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
     def poll(cls, context):
         return True
 
-    # [Auto Texture] Draw method: auto-set directory, load history, apply button before material list - Modified: 2026-06-09
+    # [Auto Texture] Draw method - Modified: 2026-06-09
     def draw(self, context):
         layout = self.layout
         scene = context.scene
         node_runner = scene.node_runner
-
-        self.__class__.bl_label = i18n.get_text("panel.title")
-        self.__class__.bl_category = i18n.get_text("panel.category")
-
-        # Auto-set resource directory to blend file directory if not set
-        # Modified: 2026-06-09
-        if not node_runner.texture_directory and bpy.data.filepath:
-            blend_dir = os.path.dirname(bpy.data.filepath)
-            if blend_dir:
-                node_runner.texture_directory = blend_dir
 
         _draw_directory_row(layout, node_runner)
 
@@ -159,7 +178,7 @@ class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
                         continue
                     item = node_runner.texture_matches.add()
                     item.material_name = mat_name
-                    for tex_attr in ("basecolor_path", "metallic_path", "roughness_path", "normal_path", "ao_path"):
+                    for tex_attr in operators._TEX_ATTRS:
                         val = match.get(tex_attr, "")
                         if val and history.validate_file_path(val):
                             setattr(item, tex_attr, val)
@@ -172,6 +191,8 @@ class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
                 missing += _count_missing(item)
 
             _draw_apply_button_row(layout, missing)
+            _draw_ai_adjust_row(layout, node_runner)
+            _draw_ai_model_selector(layout, node_runner)
 
             layout.separator()
             for item in node_runner.texture_matches:
@@ -179,7 +200,7 @@ class NODE_RUNNER_PT_auto_texture(bpy.types.Panel):
 
 
 _classes = (
-    NODE_RUNNER_PT_auto_texture,
+    AUTO_TEXTURE_PT_main,
 )
 
 

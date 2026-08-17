@@ -1,3 +1,38 @@
+# Auto Node Runner (AI)
+
+所有开发均由AI实现，该项目属于个人学习项目，不涉及任何商业用途，所有内容均不保留任何权利和义务。
+
+llama 版本匹配
+
+3. 安装 64 位的 CUDA 版本（根据您的 CUDA 版本）
+首先确认 CUDA 版本
+打开命令提示符（不是 Blender 的），运行：
+
+cmd
+nvidia-smi
+在顶部找到 CUDA Version: X.Y，例如 12.1 或 11.8。
+
+然后使用对应的命令安装 64 位 wheel：
+如果 CUDA 版本 ≥ 12.0（例如 12.1）：
+
+cmd
+.\python -m pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121 --only-binary :all:
+如果 CUDA 版本为 11.x（例如 11.8）：
+
+cmd
+.\python -m pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu118 --only-binary :all:
+如果不确定 CUDA 版本，或没有 NVIDIA 显卡，可以安装 CPU 版本（也能用，只是推理较慢）：
+
+cmd
+.\python -m pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu --only-binary :all:
+⚠️ 务必带上 --only-binary :all:，防止 pip 尝试从源码编译（32/64 位自动匹配）。
+
+4. 验证安装
+cmd
+.\python -c "from llama_cpp import Llama; print('OK')"
+如果无报错，说明 64 位 DLL 已成功加载。
+
+
 # NodeRunner
 
 #### Example of exporting and importing shader nodes

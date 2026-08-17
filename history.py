@@ -27,6 +27,11 @@ log = logging.getLogger(__name__)
 _NODETMP_FILENAME = "nodetmp.txt"
 # [Auto Texture] Save format version for forward/backward compatibility - Modified: 2026-06-09
 _SAVE_VERSION = 1
+# [Auto Texture] All 9 texture path attribute names - Modified: 2026-08-16
+_TEX_ATTRS = (
+    "basecolor_path", "metallic_path", "roughness_path", "normal_path",
+    "ao_path", "alpha_path", "displacement_path", "specular_path", "emission_path",
+)
 
 
 # [Auto Texture] Resolve nodetmp path from blend file dir, fallback to tempdir - Modified: 2026-06-09
@@ -50,24 +55,20 @@ def save_texture_matches(context):
     }
 
     for item in node_runner.texture_matches:
-        data["matches"].append({
-            "material_name": item.material_name,
-            "basecolor_path": item.basecolor_path,
-            "metallic_path": item.metallic_path,
-            "roughness_path": item.roughness_path,
-            "normal_path": item.normal_path,
-            "ao_path": item.ao_path,
-        })
+        record = {"material_name": item.material_name}
+        for attr in _TEX_ATTRS:
+            record[attr] = getattr(item, attr, "")
+        data["matches"].append(record)
 
     tmp_path = get_nodetmp_path(context)
-    print(f"[AutoTexture] save_nodetmp: path={tmp_path}, matches={len(data['matches'])}")
+    #print(f"[AutoTexture] save_nodetmp: path={tmp_path}, matches={len(data['matches'])}")
 
     try:
         tmp_file = tmp_path + ".tmp"
         with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         os.replace(tmp_file, tmp_path)
-        print(f"[AutoTexture] save_nodetmp: saved successfully")
+        #print(f"[AutoTexture] save_nodetmp: saved successfully")
     except Exception as e:
         print(f"[AutoTexture] save_nodetmp: FAILED: {e}")
         log.warning(f"Failed to save nodetmp.txt: {e}")
@@ -121,7 +122,7 @@ def merge_with_history(auto_matches, history_data, current_materials):
             if mat_name not in history_by_mat:
                 continue
             hist = history_by_mat[mat_name]
-            for tex_type in ("basecolor_path", "metallic_path", "roughness_path", "normal_path", "ao_path"):
+            for tex_type in _TEX_ATTRS:
                 current_val = result[mat_name].get(tex_type, "")
                 if current_val:
                     continue
@@ -133,7 +134,7 @@ def merge_with_history(auto_matches, history_data, current_materials):
                 continue
             hist = history_by_mat[mat_name]
             merged = {}
-            for tex_type in ("basecolor_path", "metallic_path", "roughness_path", "normal_path", "ao_path"):
+            for tex_type in _TEX_ATTRS:
                 val = hist.get(tex_type, "")
                 if val and validate_file_path(val):
                     merged[tex_type] = val

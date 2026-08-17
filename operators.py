@@ -25,6 +25,22 @@ Modifications (2026-06-09) by Auto Texture contributors:
     Metallic/Roughness/Normal from sRGB to Non-Color (PBR standard)
   - Changed blend_type in ao.json from MULTIPLY to BURN for AO mixing
   - All bl_idname values use __package__ prefix for addon isolation
+
+Modifications (2026-08-16) by Auto Texture contributors:
+  - Added AI adjustment feature: NODE_OT_ai_adjust operator with background
+    thread execution and bpy.app.timers for main-thread updates
+  - Added path placeholder system: _build_path_placeholders,
+    _to_placeholder_path, _expand_placeholder_path for AI-friendly paths
+  - Added AI submission/parsing: _build_ai_submission_data,
+    _parse_ai_return_data with three-tier path validation
+  - Added subprocess execution: _run_ai_subprocess with UTF-8 encoding
+    and PYTHONIOENCODING env var for Windows compatibility
+  - Added GGUF model management: _scan_gguf_models, _resolve_gguf_directory
+  - Modified match_orchestrate to return (results, classification) tuple
+  - Added classified_files property to TextureMatchItem for AI unmatch data
+  - Added ai_state, ai_prompt, ai_model properties to NodeRunnerProperties
+  - Used bpy.data.scenes instead of bpy.context.scene in timer callbacks
+    to avoid "Python context internal state bug" errors
 """
 
 import logging
@@ -233,6 +249,9 @@ class AUTO_NODE_RUNNER_preferences(bpy.types.AddonPreferences):
         layout.prop(self, "import_at_cursor")
         layout.prop(self, "select_imported")
         layout.prop(self, "language")
+        # [Auto Texture] Uninstall button - removes nodetmp.txt and cleans up - Modified: 2026-06-09
+        layout.separator()
+        layout.operator(_pkg + ".uninstall_addon", icon="TRASH")
 
 
 def _get_prefs(context):
@@ -241,6 +260,48 @@ def _get_prefs(context):
     if prefs:
         return prefs.preferences
     return None
+
+
+# [Auto Texture] Uninstall operator - cleans data then removes the addon - Modified: 2026-06-09
+class NODE_OT_uninstall_addon(bpy.types.Operator):
+    """Clean up persistent data and uninstall this addon"""
+
+    bl_idname = _pkg + ".uninstall_addon"
+    bl_label = "Uninstall"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        from . import history
+        history.cleanup_nodetmp()
+        addon_pkg = __package__
+        if addon_pkg in context.preferences.addons:
+            try:
+                bpy.ops.preferences.addon_disable(module=addon_pkg)
+            except Exception:
+                pass
+            try:
+                bpy.ops.preferences.addon_remove(module=addon_pkg)
+            except Exception:
+                pass
+        return {"FINISHED"}
+
+
+# [Auto Texture] Set texture directory operator (safe way to set from panel) - Modified: 2026-06-09
+class NODE_OT_set_texture_directory(bpy.types.Operator):
+    """Set the resource directory for texture matching"""
+
+    bl_idname = _pkg + ".set_texture_directory"
+    bl_label = "Set Directory"
+    bl_options = {"REGISTER", "UNDO"}
+
+    directory: bpy.props.StringProperty(subtype="DIR_PATH")
+
+    def execute(self, context):
+        scene = context.scene
+        node_runner = scene.node_runner
+        if self.directory and os.path.isdir(self.directory):
+            node_runner.texture_directory = self.directory
+        return {"FINISHED"}
 
 
 # Shared helpers
@@ -915,7 +976,7 @@ class NODE_RUNNER_OT_confirm_import(bpy.types.Operator):
 class NODE_RUNNER_MT_menu(bpy.types.Menu):
     """Node Runner submenu"""
 
-    bl_idname = _pkg + "_menu"
+    bl_idname = "NODE_RUNNER_MT_menu"
     bl_label = "Node Runner"
 
     def draw(self, context):
@@ -955,6 +1016,10 @@ import os
 import re
 import json
 import copy
+import locale
+import subprocess
+import threading
+from dataclasses import dataclass, field
 
 from . import i18n
 from . import history
@@ -973,6 +1038,7 @@ def _get_unique_materials_from_selection(context):
     return materials
 
 
+# DEPRECATED: 由 match_orchestrate 新流程替代
 # [Auto Texture] Convert material name to fuzzy match pattern (symbols -> .?) - Modified: 2026-06-09
 def _clean_material_name(name):
     """Convert material name to fuzzy match pattern.
@@ -987,6 +1053,7 @@ def _clean_material_name(name):
     return ".?".join(parts)
 
 
+# DEPRECATED: 由 match_orchestrate 新流程替代
 # [Auto Texture] Build regex pattern allowing optional symbols between alphanumeric segments - Modified: 2026-06-09
 def _build_mat_name_pattern(mat_name):
     """Build a regex pattern from material name that allows optional symbols between characters.
@@ -1018,19 +1085,27 @@ def _load_match_rules():
 # [Auto Texture] Default match rules fallback when match_rules.json not found - Modified: 2026-06-09
 _DEFAULT_MATCH_RULES = {
     "rules": {
-        "basecolor": {"patterns": ["basecolor", "albedo", "diffuse", "color", "base", "bc"]},
-        "metallic": {"patterns": ["metallic", "metal", "metalness", "mt"]},
-        "roughness": {"patterns": ["roughness", "rough", "rgh"]},
-        "normal": {"patterns": ["normal", "norm", "nrm", "nor"]},
-        "ao": {"patterns": ["ambient_occlusion", "ambientocclusion", "ao", "occlusion", "occ"]},
+        "basecolor": {"patterns": ["basecolor", "albedo", "diffuse", "color", "base", "bc", "col", "B"]},
+        "metallic": {"patterns": ["metallic", "metal", "metalness", "mt", "metallicmap", "metalmap", "M"]},
+        "roughness": {"patterns": ["roughness", "rough", "rgh", "roughmap", "roughnessmap", "R"]},
+        "normal": {"patterns": ["normal", "norm", "nrm", "nor", "normalmap", "nmap", "N"]},
+        "ao": {"patterns": ["ambient_occlusion", "ambientocclusion", "occlusion", "occlusionmap", "aomap", "ao", "occ", "A"]},
+        "alpha": {"patterns": ["transparency", "opacity", "alpha", "a"]},
+        "displacement": {"patterns": ["displacement", "height", "disp", "D"]},
+        "specular": {"patterns": ["specular", "spec", "S"]},
+        "emission": {"patterns": ["emission", "emissive", "emit", "glow", "E"]},
     },
-    "image_extensions": [".png", ".jpg", ".jpeg", ".tga", ".exr", ".tif", ".tiff"],
+    "image_extensions": [".png", ".jpg", ".jpeg", ".tga", ".exr", ".tif", ".tiff", ".bmp", ".hdr"],
 }
 
 
-# [Auto Texture] Compile match rules from loaded data into regex patterns - Modified: 2026-06-09
+# [Auto Texture] Compile match rules into regex patterns and raw pattern lists - Modified: 2026-08-16
 def _get_match_rules():
-    """Get compiled match rules, loading from file if available."""
+    """Get compiled match rules, loading from file if available.
+
+    Returns (type_patterns, image_extensions, type_patterns_raw) where
+    type_patterns is compiled regex strings, type_patterns_raw is raw lists.
+    """
     data = _load_match_rules()
     if data is None:
         data = _DEFAULT_MATCH_RULES
@@ -1040,43 +1115,524 @@ def _get_match_rules():
     image_extensions = frozenset(ext_list)
 
     type_patterns = {}
+    type_patterns_raw = {}
     for tex_type, rule_data in rules.items():
         patterns = rule_data.get("patterns", [])
         if patterns:
             type_patterns[tex_type] = r"(" + "|".join(re.escape(p) for p in patterns) + ")"
+            type_patterns_raw[tex_type] = patterns
 
-    return type_patterns, image_extensions
+    return type_patterns, image_extensions, type_patterns_raw
 
 
-# [Auto Texture] Match texture files to material using fuzzy name + type keyword patterns - Modified: 2026-06-09
-def _match_textures_for_material(mat_name, texture_files):
-    """Match texture files to a material based on fuzzy name matching."""
-    type_patterns, image_extensions = _get_match_rules()
-    mat_pattern = _build_mat_name_pattern(mat_name)
+# [Auto Texture] Material match context dataclass for two-phase matching - Modified: 2026-08-16
+@dataclass
+class MaterialMatchContext:
+    """Context for material name matching in the two-phase flow."""
+    mat_name: str
+    mat_segments: list = field(default_factory=list)
+    mat_concat: str = ""
+    classified_files: list = field(default_factory=list)
+    remainder: str = ""
+    special_symbols: set = field(default_factory=lambda: {"_", "-", ".", " ", "\t"})
+    exclusive_owned_files: list = field(default_factory=list)
+    degraded_shared_files: list = field(default_factory=list)
+
+
+# [Auto Texture] Build material name context: segments + concatenation - Modified: 2026-08-16
+def _build_material_context(mat_name):
+    """Build MaterialMatchContext from material name.
+
+    Splits mat_name into segments by special symbols, and concatenates
+    all segments (removing symbols) into mat_concat.
+    """
+    segments = re.split(r"[_.\-\s]+", mat_name)
+    segments = [s for s in segments if s]
+    mat_concat = "".join(segments)
+    ctx = MaterialMatchContext(mat_name=mat_name)
+    ctx.mat_segments = segments
+    ctx.mat_concat = mat_concat
+    return ctx
+
+
+# [Auto Texture] Single-char pattern判定 - Modified: 2026-08-16
+def _is_single_char_pattern(pattern):
+    """Return True if pattern is exactly one character."""
+    return len(pattern) == 1
+
+
+# [Auto Texture] Split filename into independent segments by special symbols - Modified: 2026-08-16
+def _split_into_segments(filename):
+    """Split filename (without extension) into segments by special symbols."""
+    stem = os.path.splitext(filename)[0]
+    segments = re.split(r"[_.\-\s]+", stem)
+    return [s for s in segments if s]
+
+
+# [Auto Texture] Single-char whole-word match: segment exactly equals pattern - Modified: 2026-08-16
+def _match_single_char_whole_word(pattern, filename):
+    """Return True if any segment of filename exactly matches pattern (case-insensitive)."""
+    segments = _split_into_segments(filename)
+    pat_lower = pattern.lower()
+    for seg in segments:
+        if seg.lower() == pat_lower:
+            return True
+    return False
+
+
+# [Auto Texture] Dispatch pattern match: single-char -> whole word, multi-char -> re.search - Modified: 2026-08-16
+def _dispatch_pattern_match(pattern, filename, compiled_regex=None):
+    """Dispatch pattern matching: single-char uses whole-word, multi-char uses re.search."""
+    if _is_single_char_pattern(pattern):
+        if compiled_regex is not None:
+            try:
+                if not compiled_regex.search(filename):
+                    return False
+            except Exception:
+                return False
+        return _match_single_char_whole_word(pattern, filename)
+    else:
+        if compiled_regex is None:
+            return False
+        try:
+            return bool(compiled_regex.search(filename))
+        except Exception:
+            return False
+
+
+# [Auto Texture] Classify files by material using whole-word match - Modified: 2026-08-16
+def _classify_files_by_material(materials, all_files):
+    """Classify files by material name whole-word matching.
+
+    Returns dict[mat_name, list[str]] of candidate files per material.
+    A file is classified to a material if any file segment equals any
+    material segment or the material concatenation (case-insensitive).
+    """
+    contexts = {}
+    for mat in materials:
+        mat_name = mat.name if hasattr(mat, "name") else mat
+        ctx = _build_material_context(mat_name)
+        contexts[mat_name] = ctx
+
+    classification = {mat_name: [] for mat_name in contexts}
+
+    for tex_path in all_files:
+        filename = os.path.basename(tex_path)
+        file_segments = _split_into_segments(filename)
+        file_segments_lower = [s.lower() for s in file_segments]
+
+        for mat_name, ctx in contexts.items():
+            segs_lower = [s.lower() for s in ctx.mat_segments]
+            concat_lower = ctx.mat_concat.lower()
+            matched = False
+            for fs in file_segments_lower:
+                if fs in segs_lower or (concat_lower and fs == concat_lower):
+                    matched = True
+                    break
+            if matched:
+                classification[mat_name].append(tex_path)
+
+    return classification
+
+
+# [Auto Texture] Apply exclusivity: longest material names own files exclusively - Modified: 2026-08-16
+def _apply_exclusivity(classification):
+    """Apply exclusivity: files matched by longer material names are removed
+    from shorter material candidates.
+
+    Returns (classification, exclusive_owners) where exclusive_owners is
+    dict[mat_name, list[str]] of files exclusively owned by each material.
+    Materials with equal length do not exclusively own (conflict warning).
+    """
+    mat_names = list(classification.keys())
+    mat_names_sorted = sorted(mat_names, key=lambda n: len(n), reverse=True)
+
+    file_to_mats = {}
+    for mat_name in mat_names:
+        for f in classification[mat_name]:
+            file_to_mats.setdefault(f, []).append(mat_name)
+
+    exclusive_owners = {mat_name: [] for mat_name in mat_names}
+
+    owned_files = set()
+    for mat_name in mat_names_sorted:
+        for f in classification[mat_name]:
+            if f in owned_files:
+                continue
+            owners = file_to_mats.get(f, [])
+            owner_lengths = [len(o) for o in owners]
+            max_len = max(owner_lengths) if owner_lengths else 0
+            same_len_owners = [o for o in owners if len(o) == max_len]
+            if len(same_len_owners) > 1:
+                log.warning(f"Exclusivity conflict: file {os.path.basename(f)} "
+                            f"matched by multiple materials of same length: {same_len_owners}")
+                continue
+            if mat_name == same_len_owners[0]:
+                exclusive_owners[mat_name].append(f)
+                owned_files.add(f)
+
+    for mat_name in mat_names:
+        if not exclusive_owners[mat_name]:
+            continue
+        exclusive_set = set(exclusive_owners[mat_name])
+        for other_mat in mat_names:
+            if other_mat == mat_name:
+                continue
+            classification[other_mat] = [
+                f for f in classification[other_mat] if f not in exclusive_set
+            ]
+
+    return classification, exclusive_owners
+
+
+# [Auto Texture] Substitute material name from filename, return remainder - Modified: 2026-08-16
+def _substitute_material_name(filename, ctx):
+    """Remove material name segments from filename, return remainder.
+
+    Removes all segments equal to ctx.mat_segments or ctx.mat_concat
+    (case-insensitive), joins remaining segments with '_'.
+    Returns empty string if all segments removed.
+    """
+    segments = _split_into_segments(filename)
+    segs_lower = [s.lower() for s in ctx.mat_segments]
+    concat_lower = ctx.mat_concat.lower()
+    remaining = []
+    for seg in segments:
+        sl = seg.lower()
+        if sl in segs_lower or (concat_lower and sl == concat_lower):
+            continue
+        remaining.append(seg)
+    return "_".join(remaining)
+
+
+# [Auto Texture] Match texture types in classified files using remainder - Modified: 2026-08-16
+def _match_texture_types(remainder, candidate_files, type_patterns,
+                         type_patterns_raw, image_extensions):
+    """Match texture types using the remainder after material name substitution.
+
+    Returns dict[str, list[str]] with candidates sorted by filename length
+    descending.  Single-char patterns use whole-word match; multi-char use
+    re.search.  Empty remainder returns empty lists for all types.
+    """
     matches = {tex_type: [] for tex_type in type_patterns}
+    if not remainder:
+        return matches
 
     ext_pattern = r"\.(" + "|".join(re.escape(e.lstrip(".")) for e in image_extensions) + ")"
 
-    print(f"[AutoTexture] match: mat_name={mat_name}, mat_pattern={mat_pattern}")
+    for tex_type in type_patterns:
+        raw_patterns = type_patterns_raw.get(tex_type, [])
+        for raw_pattern in raw_patterns:
+            full_pattern = re.escape(raw_pattern) + r"[^/\\]*?" + ext_pattern
+            compiled_regex = re.compile(full_pattern, re.IGNORECASE)
 
-    for tex_type, type_kw in type_patterns.items():
-        if mat_pattern:
-            full_pattern = mat_pattern + r"[^/\\]*?" + type_kw + r"[^/\\]*?" + ext_pattern
-        else:
-            full_pattern = type_kw + r"[^/\\]*?" + ext_pattern
+            for tex_path in candidate_files:
+                filename = os.path.basename(tex_path)
+                if _dispatch_pattern_match(raw_pattern, filename, compiled_regex):
+                    if tex_path not in matches[tex_type]:
+                        matches[tex_type].append(tex_path)
 
-        pattern = re.compile(full_pattern, re.IGNORECASE)
+        matches[tex_type].sort(key=lambda p: len(os.path.basename(p)), reverse=True)
 
-        for tex_path in texture_files:
+    return matches
+
+
+# [Auto Texture] Degraded segment match: whole-word for <4, fuzzy for >=4 - Modified: 2026-08-16
+def _match_degraded_segment(segment, file_segments):
+    """Match a degraded material name segment against file segments.
+
+    If len(segment) < 4: whole-word match (any file_segment equals segment).
+    If len(segment) >= 4: fuzzy match (any file_segment contains segment).
+    Case-insensitive.
+    """
+    seg_lower = segment.lower()
+    if len(segment) < 4:
+        for fs in file_segments:
+            if fs.lower() == seg_lower:
+                return True
+        return False
+    else:
+        for fs in file_segments:
+            if seg_lower in fs.lower():
+                return True
+        return False
+
+
+# [Auto Texture] Classify files by degraded matching (truncated material name) - Modified: 2026-08-16
+def _classify_files_degraded(truncated_name, all_files):
+    """Classify files using degraded matching with a truncated material name.
+
+    Uses _match_degraded_segment for each segment of the truncated name.
+    Returns list of matching file paths.
+    """
+    ctx = _build_material_context(truncated_name)
+    if not ctx.mat_segments:
+        return []
+
+    result = []
+    for tex_path in all_files:
+        filename = os.path.basename(tex_path)
+        file_segments = _split_into_segments(filename)
+        for segment in ctx.mat_segments:
+            if _match_degraded_segment(segment, file_segments):
+                result.append(tex_path)
+                break
+    return result
+
+
+# [Auto Texture] Orchestrate truncation degradation for unclassified files - Modified: 2026-08-16
+def _orchestrate_truncate(mat_name, all_files, type_patterns,
+                          type_patterns_raw, image_extensions):
+    """Truncation degradation: cut material name at special symbols and retry.
+
+    Returns (result, classified) where result is dict[str, str] per tex type,
+    classified=True if candidate set was non-empty.
+    """
+    result = {tex_type: "" for tex_type in type_patterns}
+
+    names_to_try = []
+    current = mat_name
+    while True:
+        m = re.search(r"^(.+)[._\-@#$%^&*()\s]", current)
+        if not m:
+            break
+        current = m.group(1)
+        if current:
+            names_to_try.append(current)
+
+    classified_files = []
+    for truncated_name in names_to_try:
+        candidates = _classify_files_degraded(truncated_name, all_files)
+        if candidates:
+            classified_files = candidates
+            break
+
+    if not classified_files:
+        return result, False
+
+    ctx = _build_material_context(mat_name)
+    for tex_path in classified_files:
+        filename = os.path.basename(tex_path)
+        remainder = _substitute_material_name(filename, ctx)
+        if not remainder:
+            remainder = filename
+        type_matches = _match_texture_types(
+            remainder, [tex_path], type_patterns, type_patterns_raw, image_extensions
+        )
+        for tex_type in type_patterns:
+            if not result[tex_type] and type_matches[tex_type]:
+                result[tex_type] = type_matches[tex_type][0]
+
+    return result, True
+
+
+# [Auto Texture] Fallback: shortest name match using single-char patterns only - Modified: 2026-08-16
+def _fallback_shortest_name(candidate_files, type_patterns,
+                             type_patterns_raw, image_extensions):
+    """Shortest name fallback using only single-char patterns.
+
+    Returns dict[str, str] picking shortest filename per type.
+    """
+    result = {tex_type: "" for tex_type in type_patterns}
+    single_char_raw = {}
+    for tex_type, patterns in type_patterns_raw.items():
+        single_char_raw[tex_type] = [p for p in patterns if _is_single_char_pattern(p)]
+
+    for tex_type in type_patterns:
+        patterns = single_char_raw.get(tex_type, [])
+        candidates = []
+        for raw_pattern in patterns:
+            for tex_path in candidate_files:
+                filename = os.path.basename(tex_path)
+                if _match_single_char_whole_word(raw_pattern, filename):
+                    candidates.append(tex_path)
+        if candidates:
+            candidates = sorted(set(candidates), key=lambda p: len(os.path.basename(p)))
+            result[tex_type] = candidates[0]
+
+    return result
+
+
+# DEPRECATED: 由 match_orchestrate 新流程替代
+# [Auto Texture] Full match: material name pattern + type keyword, longest name first - Modified: 2026-08-16
+def _match_full(mat_name, texture_files, type_patterns, image_extensions, type_patterns_raw):
+    """Full match using material name pattern + type keyword.
+
+    Returns dict[str, list[str]] with candidates sorted by filename length
+    descending (longest name first).  Single-char patterns use whole-word
+    matching; multi-char patterns use re.search fuzzy matching.
+    """
+    mat_pattern = _build_mat_name_pattern(mat_name)
+    matches = {tex_type: [] for tex_type in type_patterns}
+    ext_pattern = r"\.(" + "|".join(re.escape(e.lstrip(".")) for e in image_extensions) + ")"
+
+    for tex_type in type_patterns:
+        raw_patterns = type_patterns_raw.get(tex_type, [])
+        for raw_pattern in raw_patterns:
+            if mat_pattern:
+                full_pattern = mat_pattern + r"[^/\\]*?" + re.escape(raw_pattern) + r"[^/\\]*?" + ext_pattern
+            else:
+                full_pattern = re.escape(raw_pattern) + r"[^/\\]*?" + ext_pattern
+
+            compiled_regex = re.compile(full_pattern, re.IGNORECASE)
+
+            for tex_path in texture_files:
+                filename = os.path.basename(tex_path)
+                if _dispatch_pattern_match(raw_pattern, filename, compiled_regex):
+                    if tex_path not in matches[tex_type]:
+                        matches[tex_type].append(tex_path)
+
+        matches[tex_type].sort(key=lambda p: len(os.path.basename(p)), reverse=True)
+
+    return matches
+
+
+# DEPRECATED: 由 match_orchestrate 新流程替代
+# [Auto Texture] Truncation degradation: cut material name at special symbols and retry - Modified: 2026-08-16
+def _match_truncate(mat_name, texture_files, type_patterns, image_extensions, type_patterns_raw):
+    """Truncation degradation match.
+
+    Truncates material name at special symbols (e.g. xxx.001 -> xxx) and
+    retries full match.  Returns dict[str, str] with matched path per type.
+    """
+    result = {tex_type: "" for tex_type in type_patterns}
+
+    names_to_try = []
+    current = mat_name
+    while True:
+        m = re.search(r"^(.+)[._\-@#$%^&*()\s]", current)
+        if not m:
+            break
+        current = m.group(1)
+        if current:
+            names_to_try.append(current)
+
+    for truncated_name in names_to_try:
+        full_matches = _match_full(truncated_name, texture_files, type_patterns, image_extensions, type_patterns_raw)
+        for tex_type in type_patterns:
+            if not result[tex_type] and full_matches[tex_type]:
+                result[tex_type] = full_matches[tex_type][0]
+
+    return result
+
+
+# DEPRECATED: 由 match_orchestrate 新流程替代
+# [Auto Texture] Shortest name fallback: pure type keyword match, pick shortest filename - Modified: 2026-08-16
+def _match_shortest(texture_files, type_patterns, image_extensions, type_patterns_raw):
+    """Shortest name fallback match (no material name pattern).
+
+    Only single-char patterns are used in this stage to match single-char
+    filenames (e.g. D.jpg -> displacement).  Multi-char patterns are excluded
+    to avoid false positives on unrelated files containing type keywords.
+    Returns dict[str, str] picking the shortest filename candidate per type.
+    """
+    result = {tex_type: "" for tex_type in type_patterns}
+    single_char_raw = {}
+    for tex_type, patterns in type_patterns_raw.items():
+        single_char_raw[tex_type] = [p for p in patterns if _is_single_char_pattern(p)]
+
+    full_matches = _match_full("", texture_files, type_patterns, image_extensions, single_char_raw)
+    for tex_type in type_patterns:
+        if full_matches[tex_type]:
+            candidates = sorted(full_matches[tex_type], key=lambda p: len(os.path.basename(p)))
+            result[tex_type] = candidates[0]
+    return result
+
+
+# [Auto Texture] Two-phase match orchestrator: classify -> texture match - Modified: 2026-08-16
+def match_orchestrate(materials, all_files):
+    """Two-phase match orchestrator.
+
+    Phase 1 (File Classification): Classify files by material name whole-word
+    matching, then degraded matching for unclassified files. Exclusivity is
+    NOT applied: shorter-named materials keep candidates owned by longer
+    names so AI adjustment receives the full candidate list per material.
+    Phase 2 (Texture Matching): For each material, substitute material name
+    from classified files and match texture types; fallback to shortest name.
+
+    Args:
+        materials: list of material objects (with .name) or material name strings.
+        all_files: list of texture file paths.
+
+    Returns:
+        tuple (results, classification) where
+        results: dict[mat_name, dict[tex_type, str]] with matched path per type per material.
+        classification: dict[mat_name, list[str]] of all candidate files per material
+            (including degraded-shared), used downstream for AI unmatch submission.
+    """
+    type_patterns, image_extensions, type_patterns_raw = _get_match_rules()
+    mat_names = [mat.name if hasattr(mat, "name") else mat for mat in materials]
+
+    contexts = {name: _build_material_context(name) for name in mat_names}
+
+    classification = _classify_files_by_material(materials, all_files)
+
+
+    mat_names_sorted = sorted(mat_names, key=lambda n: len(n), reverse=True)
+    classified_files_global = set()
+    for mat_name in mat_names:
+        classified_files_global.update(classification[mat_name])
+
+    unclassified_files = [f for f in all_files if f not in classified_files_global]
+
+    for mat_name in mat_names_sorted:
+        if not unclassified_files:
+            break
+        ctx = contexts[mat_name]
+        degraded = _classify_files_degraded(mat_name, unclassified_files)
+        for f in degraded:
+            if f not in classification[mat_name]:
+                classification[mat_name].append(f)
+            ctx.degraded_shared_files.append(f)
+
+    results = {}
+    for mat_name in mat_names:
+        ctx = contexts[mat_name]
+        result = {tex_type: "" for tex_type in type_patterns}
+        classified = classification[mat_name]
+
+        if not classified:
+            results[mat_name] = result
+            continue
+
+        for tex_path in classified:
             filename = os.path.basename(tex_path)
-            if pattern.search(filename):
-                matches[tex_type].append(tex_path)
+            remainder = _substitute_material_name(filename, ctx)
+            if not remainder:
+                continue
+            type_matches = _match_texture_types(
+                remainder, [tex_path], type_patterns,
+                type_patterns_raw, image_extensions
+            )
+            for tex_type in type_patterns:
+                if not result[tex_type] and type_matches[tex_type]:
+                    result[tex_type] = type_matches[tex_type][0]
 
-        matches[tex_type].sort(key=lambda p: len(os.path.basename(p)))
+        unmatched = [t for t in type_patterns if not result[t]]
+        if unmatched:
+            shortest = _fallback_shortest_name(
+                classified, type_patterns, type_patterns_raw, image_extensions
+            )
+            for tex_type in unmatched:
+                if shortest.get(tex_type, ""):
+                    result[tex_type] = shortest[tex_type]
 
-        if matches[tex_type]:
-            print(f"[AutoTexture] match: {tex_type} -> {matches[tex_type][0]}")
+        results[mat_name] = result
 
+    return results, classification
+
+
+# [Auto Texture] Match texture files for a single material (backward compat) - Modified: 2026-08-16
+def _match_textures_for_material(mat_name, texture_files):
+    """Match texture files to a single material.
+
+    Returns (matches, image_extensions) for backward compatibility where
+    matches is dict[str, list[str]] (single-element list or empty list).
+    """
+    type_patterns, image_extensions, _ = _get_match_rules()
+    orchestrated, _classification = match_orchestrate([mat_name], texture_files)
+    single_result = orchestrated.get(mat_name, {tex_type: "" for tex_type in type_patterns})
+    matches = {tex_type: ([path] if path else []) for tex_type, path in single_result.items()}
     return matches, image_extensions
 
 
@@ -1084,7 +1640,7 @@ def _match_textures_for_material(mat_name, texture_files):
 def _scan_directory_for_textures(directory, image_extensions=None):
     """Scan a directory recursively for image files."""
     if image_extensions is None:
-        _, image_extensions = _get_match_rules()
+        _, image_extensions, _ = _get_match_rules()
     textures = []
     if os.path.isdir(directory):
         for root, _, files in os.walk(directory):
@@ -1105,11 +1661,18 @@ class NODE_OT_match_textures(bpy.types.Operator):
         scene = context.scene
         node_runner = scene.node_runner
 
-        if not node_runner.texture_directory:
-            self.report({"WARNING"}, i18n.get_text("message.select_directory_first"))
-            return {"CANCELLED"}
+        # [Auto Texture] Reset AI state so the adjust button is re-enabled - Modified: 2026-08-16
+        node_runner.ai_state = "IDLE"
 
+        # [Auto Texture] If no directory set, try blend file directory - Modified: 2026-06-09
         tex_dir = node_runner.texture_directory
+        if not tex_dir:
+            tex_dir = bpy.path.abspath("//")
+            if tex_dir and os.path.isdir(tex_dir):
+                node_runner.texture_directory = tex_dir
+            else:
+                self.report({"WARNING"}, i18n.get_text("message.select_directory_first"))
+                return {"CANCELLED"}
 
         if ".." in tex_dir.split(os.sep) or ".." in tex_dir.split("/"):
             self.report({"WARNING"}, i18n.get_text("message.invalid_directory"))
@@ -1128,15 +1691,14 @@ class NODE_OT_match_textures(bpy.types.Operator):
 
         textures = _scan_directory_for_textures(tex_dir)
 
+        orchestrated, classification = match_orchestrate(materials, textures)
+
         auto_matches = {}
         for mat in materials:
-            tex_map, _ = _match_textures_for_material(mat.name, textures)
+            mat_result = orchestrated.get(mat.name, {})
             auto_matches[mat.name] = {
-                "basecolor_path": (tex_map.get("basecolor") or [""])[0],
-                "metallic_path": (tex_map.get("metallic") or [""])[0],
-                "roughness_path": (tex_map.get("roughness") or [""])[0],
-                "normal_path": (tex_map.get("normal") or [""])[0],
-                "ao_path": (tex_map.get("ao") or [""])[0],
+                attr: mat_result.get(tex_type, "")
+                for attr, tex_type in zip(_TEX_ATTRS, _TEX_TYPES)
             }
 
         history_data = history.load_texture_matches(context)
@@ -1146,11 +1708,10 @@ class NODE_OT_match_textures(bpy.types.Operator):
         for mat_name, paths in merged.items():
             item = node_runner.texture_matches.add()
             item.material_name = mat_name
-            item.basecolor_path = paths.get("basecolor_path", "")
-            item.metallic_path = paths.get("metallic_path", "")
-            item.roughness_path = paths.get("roughness_path", "")
-            item.normal_path = paths.get("normal_path", "")
-            item.ao_path = paths.get("ao_path", "")
+            for attr in _TEX_ATTRS:
+                setattr(item, attr, paths.get(attr, ""))
+            classified = classification.get(mat_name, [])
+            item.classified_files = "\n".join(classified) if classified else ""
 
         history.save_texture_matches(context)
 
@@ -1175,21 +1736,6 @@ class NODE_OT_apply_textures(bpy.types.Operator):
             self.report({"WARNING"}, i18n.get_text("message.no_data_to_apply"))
             return {"CANCELLED"}
 
-        addon_dir = os.path.dirname(os.path.abspath(__file__))
-        ao_template_path = os.path.join(addon_dir, "ao.json")
-        noao_template_path = os.path.join(addon_dir, "noao.json")
-
-        print(f"[AutoTexture] apply: loading templates from {addon_dir}")
-
-        try:
-            with open(ao_template_path, "r", encoding="utf-8") as f:
-                ao_template = json.load(f)
-            with open(noao_template_path, "r", encoding="utf-8") as f:
-                noao_template = json.load(f)
-        except Exception as e:
-            self.report({"ERROR"}, f"Template load failed: {e}")
-            return {"CANCELLED"}
-
         applied_count = 0
         missing_count = 0
 
@@ -1202,19 +1748,16 @@ class NODE_OT_apply_textures(bpy.types.Operator):
                 )
                 continue
 
-            has_ao = item.ao_path and os.path.exists(item.ao_path)
-            template = copy.deepcopy(ao_template if has_ao else noao_template)
-
-            print(f"[AutoTexture] apply: mat={item.material_name}, has_ao={has_ao}, template={'ao' if has_ao else 'noao'}")
-
-            _apply_template_to_material(mat, item, template, has_ao)
-            applied_count += 1
-
-        for item in node_runner.texture_matches:
-            for attr in ("basecolor_path", "metallic_path", "roughness_path", "normal_path", "ao_path"):
-                path = getattr(item, attr)
-                if path and not os.path.exists(path):
-                    missing_count += 1
+            try:
+                applied, missing = apply_to_material(mat, item)
+                applied_count += 1
+                missing_count += missing
+            except Exception as e:
+                self.report(
+                    {"WARNING"},
+                    i18n.get_text("message.template_load_failed", name="node.json", mat=item.material_name),
+                )
+                log.warning(f"Failed to apply template for material '{item.material_name}': {e}")
 
         self.report(
             {"INFO"},
@@ -1254,43 +1797,62 @@ class NODE_OT_select_texture_directory(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
 
-# [Auto Texture] Map template Image Texture node names to texture types (ao/noao variants) - Modified: 2026-06-09
+# [Auto Texture] Toggle collapse state for a material block in the panel - Modified: 2026-08-16
+class NODE_OT_toggle_collapse(bpy.types.Operator):
+    """Toggle collapse/expand state of a material block"""
+
+    bl_idname = _pkg + ".toggle_collapse"
+    bl_label = "Toggle Collapse"
+    bl_options = {"REGISTER", "UNDO"}
+
+    material_name: bpy.props.StringProperty()  # type: ignore
+
+    def execute(self, context):
+        for item in context.scene.node_runner.texture_matches:
+            if item.material_name == self.material_name:
+                item.is_collapsed = not item.is_collapsed
+                break
+        return {"FINISHED"}
+
+
+# [Auto Texture] Texture attribute names and type keys for 9-slot support - Modified: 2026-08-16
+_TEX_ATTRS = (
+    "basecolor_path", "metallic_path", "roughness_path", "normal_path",
+    "ao_path", "alpha_path", "displacement_path", "specular_path", "emission_path",
+)
+_TEX_TYPES = (
+    "basecolor", "metallic", "roughness", "normal",
+    "ao", "alpha", "displacement", "specular", "emission",
+)
+
+# [Auto Texture] Map texture types to template Image Texture node names (unified node.json) - Modified: 2026-08-16
 _TEXTURE_NODE_MAP = {
-    "basecolor": {
-        "ao": ("Image Texture.001", "Base Color"),
-        "noao": ("Image Texture.001", "Base Color"),
-    },
-    "metallic": {
-        "ao": ("Image Texture.002", "Metallic"),
-        "noao": ("Image Texture.002", "Metallic"),
-    },
-    "roughness": {
-        "ao": ("Image Texture.004", "Roughness"),
-        "noao": ("Image Texture.004", "Roughness"),
-    },
-    "normal": {
-        "ao": ("Image Texture.003", "Normal"),
-        "noao": ("Image Texture.003", "Normal"),
-    },
-    "ao": {
-        "ao": ("Image Texture", "AO"),
-        "noao": (None, None),
-    },
+    "basecolor": ("Image Texture", "Color"),
+    "metallic": ("Image Texture.001", "Color"),
+    "normal": ("Image Texture.002", "Color"),
+    "roughness": ("Image Texture.003", "Color"),
+    "ao": ("Image Texture.004", "Color"),
+    "displacement": ("Image Texture.006", "Color"),
+    "emission": ("Image Texture.007", "Color"),
+    "specular": ("Image Texture.008", "Color"),
+    "alpha": ("Image Texture.009", "Color"),
 }
 
-# [Auto Texture] Map texture types to Group Output socket identifiers for top-level link removal - Modified: 2026-06-09
+# [Auto Texture] Map texture types to Group Output socket identifiers (ao has no direct socket) - Modified: 2026-08-16
 _GROUP_OUTPUT_SOCKET_MAP = {
     "basecolor": "Socket_0",
     "metallic": "Socket_1",
     "roughness": "Socket_2",
     "normal": "Socket_3",
+    "displacement": "Socket_6",
+    "emission": "Socket_7",
+    "specular": "Socket_8",
+    "alpha": "Socket_9",
 }
 
 
-# [Auto Texture] Rewrite template JSON image paths/names to matched texture file paths - Modified: 2026-06-09
-def _rewrite_template_paths(template, item, has_ao):
-    template_key = "ao" if has_ao else "noao"
-
+# [Auto Texture] Rewrite template JSON image paths/names to matched texture file paths - Modified: 2026-08-16
+def _rewrite_template_paths(template, item):
     nodes = template.get("nodes", {})
     group_node = None
     for key, nd in nodes.items():
@@ -1299,7 +1861,7 @@ def _rewrite_template_paths(template, item, has_ao):
             break
 
     if not group_node:
-        print(f"[AutoTexture] ERROR: No ShaderNodeGroup found in template nodes: {list(nodes.keys())}")
+        #print(f"[AutoTexture] ERROR: No ShaderNodeGroup found in template nodes: {list(nodes.keys())}")
         return set()
 
     sub_tree = group_node.get("node_tree", {})
@@ -1309,31 +1871,21 @@ def _rewrite_template_paths(template, item, has_ao):
     safe_mat = re.sub(r"[^\w]", "_", mat_name)[:32]
 
     path_map = {
-        "basecolor": getattr(item, "basecolor_path", ""),
-        "metallic": getattr(item, "metallic_path", ""),
-        "roughness": getattr(item, "roughness_path", ""),
-        "normal": getattr(item, "normal_path", ""),
-        "ao": getattr(item, "ao_path", ""),
+        tex_type: getattr(item, attr, "")
+        for tex_type, attr in zip(_TEX_TYPES, _TEX_ATTRS)
     }
 
-    print(f"[AutoTexture] rewrite_paths: mat={mat_name}, has_ao={has_ao}, template_key={template_key}")
-    print(f"[AutoTexture] rewrite_paths: sub_nodes keys={list(sub_nodes.keys())}")
-    print(f"[AutoTexture] rewrite_paths: path_map={path_map}")
+    #print(f"[AutoTexture] rewrite_paths: mat={mat_name}")
+    #print(f"[AutoTexture] rewrite_paths: path_map={path_map}")
 
     missing_types = set()
 
-    for tex_type, info in _TEXTURE_NODE_MAP.items():
-        node_name, socket_name = info.get(template_key, (None, None))
-        if node_name is None:
-            continue
-
+    for tex_type, (node_name, socket_name) in _TEXTURE_NODE_MAP.items():
         node_data = sub_nodes.get(node_name, {})
         img_data = node_data.get("image", {})
 
-        print(f"[AutoTexture]   {tex_type}: node_name={node_name}, found={bool(node_data)}, has_image={bool(img_data)}")
-
         if not img_data:
-            print(f"[AutoTexture]   {tex_type}: SKIPPED - no image data in node")
+            #print(f"[AutoTexture]   {tex_type}: SKIPPED - no image data in node")
             continue
 
         file_path = path_map.get(tex_type, "")
@@ -1343,12 +1895,12 @@ def _rewrite_template_paths(template, item, has_ao):
             name_part = os.path.splitext(base_name)[0]
             ext_part = os.path.splitext(base_name)[1]
             img_data["name"] = f"{name_part}_{safe_mat}{ext_part}"
-            print(f"[AutoTexture]   {tex_type}: SET filepath={file_path}, name={img_data['name']}")
+            #print(f"[AutoTexture]   {tex_type}: SET filepath={file_path}, name={img_data['name']}")
         else:
             img_data["filepath"] = ""
             img_data["name"] = ""
             missing_types.add(tex_type)
-            print(f"[AutoTexture]   {tex_type}: MISSING - path={file_path}")
+            #print(f"[AutoTexture]   {tex_type}: MISSING - path={file_path}")
 
     return missing_types
 
@@ -1407,13 +1959,96 @@ def _rename_template_nodes(template, mat_name):
     if group_key in nodes:
         nodes[new_group_name] = nodes.pop(group_key)
 
-    print(f"[AutoTexture] rename_nodes: mat={mat_name}, group_key={group_key} -> {new_group_name}")
+    #print(f"[AutoTexture] rename_nodes: mat={mat_name}, group_key={group_key} -> {new_group_name}")
 
     return new_group_name
 
 
-# [Auto Texture] Remove top-level Group->BSDF links for missing textures (disconnects unmatched) - Modified: 2026-06-09
-def _remove_missing_links(template, missing_types, has_ao, group_node_name):
+# [Auto Texture] Build dynamic connection topology: no-AO direct, no-Bump direct, unmatched disconnect - Modified: 2026-08-16
+def _build_dynamic_links(template, item):
+    """Dynamically adjust sub-tree links based on matched textures.
+
+    - No AO: connect Base Color Image Texture directly to Group Output Socket_0,
+      bypassing the Mix node.
+    - No Bump but has Normal: connect Normal Map directly to Group Output Socket_3,
+      bypassing the Bump node.
+    Returns set of additional missing types (e.g. ao when no AO texture).
+    """
+    nodes = template.get("nodes", {})
+    group_node = None
+    for key, nd in nodes.items():
+        if nd.get("type") == "ShaderNodeGroup":
+            group_node = nd
+            break
+    if not group_node:
+        return set()
+
+    sub_tree = group_node.get("node_tree", {})
+    sub_links = sub_tree.get("links", [])
+
+    extra_missing = set()
+
+    ao_path = getattr(item, "ao_path", "")
+    has_ao = bool(ao_path) and os.path.exists(ao_path)
+
+    if not has_ao:
+        sub_tree["links"] = [
+            lk for lk in sub_links
+            if not (
+                (lk.get("from_node") == "Image Texture" and lk.get("to_node") == "Mix")
+                or (lk.get("from_node") == "Image Texture.004" and lk.get("to_node") == "Mix")
+                or (lk.get("from_node") == "Mix" and lk.get("to_node") == "Group Output")
+            )
+        ]
+        sub_links = sub_tree["links"]
+        sub_links.append({
+            "from_node": "Image Texture",
+            "to_node": "Group Output",
+            "from_socket": "Color",
+            "from_socket_type": "NodeSocketColor",
+            "from_socket_identifier": "Color",
+            "to_socket": "Base Color",
+            "to_socket_type": "NodeSocketColor",
+            "to_socket_identifier": "Socket_0",
+        })
+        extra_missing.add("ao")
+        #print("[AutoTexture] dynamic_links: no AO, basecolor direct to Group Output")
+
+    normal_path = getattr(item, "normal_path", "")
+    has_normal = bool(normal_path) and os.path.exists(normal_path)
+    has_bump = False
+    if has_normal:
+        normal_filename = os.path.basename(normal_path).lower()
+        if "bump" in normal_filename:
+            has_bump = True
+
+    if has_normal and not has_bump:
+        sub_tree["links"] = [
+            lk for lk in sub_links
+            if not (
+                (lk.get("from_node") == "Normal Map" and lk.get("to_node") == "Bump")
+                or (lk.get("from_node") == "Bump" and lk.get("to_node") == "Group Output")
+                or (lk.get("from_node") == "Image Texture.005" and lk.get("to_node") == "Bump")
+            )
+        ]
+        sub_links = sub_tree["links"]
+        sub_links.append({
+            "from_node": "Normal Map",
+            "to_node": "Group Output",
+            "from_socket": "Normal",
+            "from_socket_type": "NodeSocketVector",
+            "from_socket_identifier": "Normal",
+            "to_socket": "Normal",
+            "to_socket_type": "NodeSocketVector",
+            "to_socket_identifier": "Socket_3",
+        })
+        #print("[AutoTexture] dynamic_links: no Bump, Normal Map direct to Group Output")
+
+    return extra_missing
+
+
+# [Auto Texture] Remove top-level Group->BSDF links for missing textures (disconnects unmatched) - Modified: 2026-08-16
+def _remove_missing_links(template, missing_types, group_node_name):
     for tex_type in missing_types:
         if tex_type in _GROUP_OUTPUT_SOCKET_MAP:
             socket_id = _GROUP_OUTPUT_SOCKET_MAP[tex_type]
@@ -1426,17 +2061,28 @@ def _remove_missing_links(template, missing_types, has_ao, group_node_name):
             ]
 
 
-# [Auto Texture] Apply template to material: rewrite paths, rename nodes, remove links, clear old, deserialize - Modified: 2026-06-09
-def _apply_template_to_material(mat, item, template, has_ao):
-    print(f"[AutoTexture] apply_template: mat={mat.name}, has_ao={has_ao}")
+# [Auto Texture] Load unified node.json template as a deep copy - Modified: 2026-08-16
+def _load_unified_template():
+    """Load unified node.json template and return a deep copy."""
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "node.json")
+    with open(template_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return copy.deepcopy(data)
 
-    missing_types = _rewrite_template_paths(template, item, has_ao)
-    print(f"[AutoTexture] apply_template: missing_types={missing_types}")
 
-    group_node_name = _rename_template_nodes(template, mat.name)
+# [Auto Texture] Patch material node tree with template (all-unmatched protection) - Modified: 2026-08-16
+def _patch_node_tree(mat, item, template):
+    """Patch material node tree with template. Returns (applied_count, missing_count)."""
+    all_unmatched = True
+    for attr in _TEX_ATTRS:
+        path = getattr(item, attr, "")
+        if path and os.path.exists(path):
+            all_unmatched = False
+            break
 
-    _remove_missing_links(template, missing_types, has_ao, group_node_name)
-    print(f"[AutoTexture] apply_template: top_links after removal={len(template.get('links', []))}")
+    if all_unmatched:
+        #print(f"[AutoTexture] patch: all slots unmatched for mat={mat.name}, skipping")
+        return (0, len(_TEX_ATTRS))
 
     node_tree = mat.node_tree
 
@@ -1456,8 +2102,8 @@ def _apply_template_to_material(mat, item, template, has_ao):
         if img and img.users == 0:
             bpy.data.images.remove(img)
 
-    for tex_type in ("basecolor", "metallic", "roughness", "normal", "ao"):
-        path = getattr(item, f"{tex_type}_path", "")
+    for attr in _TEX_ATTRS:
+        path = getattr(item, attr, "")
         if path and os.path.exists(path):
             base_name = os.path.basename(path)
             name_part = os.path.splitext(base_name)[0]
@@ -1471,15 +2117,46 @@ def _apply_template_to_material(mat, item, template, has_ao):
     socket_id_map = {}
     try:
         deserialize_node_tree(node_tree, template, socket_id_map)
-        print(f"[AutoTexture] apply_template: deserialize SUCCESS for mat={mat.name}")
-        for node in node_tree.nodes:
-            if hasattr(node, "image") and node.image:
-                print(f"[AutoTexture]   node={node.name}, image={node.image.name}, filepath={node.image.filepath}")
+        #print(f"[AutoTexture] patch: deserialize SUCCESS for mat={mat.name}")
+        #for node in node_tree.nodes:
+            #if hasattr(node, "image") and node.image:
+                #print(f"[AutoTexture]   node={node.name}, image={node.image.name}, filepath={node.image.filepath}")
     except Exception as e:
-        print(f"[AutoTexture] apply_template: deserialize FAILED for mat={mat.name}: {e}")
+        #print(f"[AutoTexture] patch: deserialize FAILED for mat={mat.name}: {e}")
         log.warning(f"Failed to deserialize template for material '{mat.name}': {e}")
         mat.use_nodes = True
-        return
+        return (0, len(_TEX_ATTRS))
+
+    applied = 0
+    missing = 0
+    for attr in _TEX_ATTRS:
+        path = getattr(item, attr, "")
+        if path and os.path.exists(path):
+            applied += 1
+        else:
+            missing += 1
+    return (applied, missing)
+
+
+# [Auto Texture] Unified apply entry: load template -> rewrite -> dynamic links -> rename -> patch - Modified: 2026-08-16
+def apply_to_material(mat, item):
+    """Apply unified template to material. Returns (applied_count, missing_count)."""
+    #print(f"[AutoTexture] apply_to_material: mat={mat.name}")
+
+    template = _load_unified_template()
+
+    missing_types = _rewrite_template_paths(template, item)
+    #print(f"[AutoTexture] apply_to_material: missing_types={missing_types}")
+
+    extra_missing = _build_dynamic_links(template, item)
+    missing_types |= extra_missing
+
+    group_node_name = _rename_template_nodes(template, mat.name)
+
+    _remove_missing_links(template, missing_types, group_node_name)
+    #print(f"[AutoTexture] apply_to_material: top_links after removal={len(template.get('links', []))}")
+
+    return _patch_node_tree(mat, item, template)
 
 
 class TextureMatchItem(bpy.types.PropertyGroup):
@@ -1489,10 +2166,20 @@ class TextureMatchItem(bpy.types.PropertyGroup):
     roughness_path: bpy.props.StringProperty(name="Roughness Path", subtype="FILE_PATH")
     normal_path: bpy.props.StringProperty(name="Normal Path", subtype="FILE_PATH")
     ao_path: bpy.props.StringProperty(name="AO Path", subtype="FILE_PATH")
+    alpha_path: bpy.props.StringProperty(name="Alpha Path", subtype="FILE_PATH")
+    displacement_path: bpy.props.StringProperty(name="Displacement Path", subtype="FILE_PATH")
+    specular_path: bpy.props.StringProperty(name="Specular Path", subtype="FILE_PATH")
+    emission_path: bpy.props.StringProperty(name="Emission Path", subtype="FILE_PATH")
+    is_collapsed: bpy.props.BoolProperty(name="Is Collapsed", default=False)
+    classified_files: bpy.props.StringProperty(
+        name="Classified Files",
+        description="All candidate file paths classified to this material, newline-separated",
+        default="",
+    )
 
 
 def _on_texture_path_update(self, context):
-    print(f"[AutoTexture] path_updated: mat={getattr(self, 'material_name', '?')}")
+    #print(f"[AutoTexture] path_updated: mat={getattr(self, 'material_name', '?')}")
     history.save_texture_matches(context)
 
 
@@ -1521,12 +2208,527 @@ TextureMatchItem.__annotations__["ao_path"] = bpy.props.StringProperty(
     subtype="FILE_PATH",
     update=_on_texture_path_update,
 )
+TextureMatchItem.__annotations__["alpha_path"] = bpy.props.StringProperty(
+    name="Alpha Path",
+    subtype="FILE_PATH",
+    update=_on_texture_path_update,
+)
+TextureMatchItem.__annotations__["displacement_path"] = bpy.props.StringProperty(
+    name="Displacement Path",
+    subtype="FILE_PATH",
+    update=_on_texture_path_update,
+)
+TextureMatchItem.__annotations__["specular_path"] = bpy.props.StringProperty(
+    name="Specular Path",
+    subtype="FILE_PATH",
+    update=_on_texture_path_update,
+)
+TextureMatchItem.__annotations__["emission_path"] = bpy.props.StringProperty(
+    name="Emission Path",
+    subtype="FILE_PATH",
+    update=_on_texture_path_update,
+)
+
+
+# [Auto Texture] AI adjustment - build directory placeholder mapping - Modified: 2026-08-16
+def _build_path_placeholders(paths, root_dir=None):
+    """Assign each unique directory a human-readable placeholder.
+
+    Naming rules:
+      - The scan root directory -> %C%
+      - Other directories -> %<parent_dir_name>% (basename of the directory's parent)
+      - Name collisions get an incrementing numeric suffix (%tex%, %tex1%, %tex2% ...)
+
+    Returns (dir_to_placeholder, placeholder_to_dir).  Directories are sorted
+    so the same input always yields the same placeholder naming.
+    """
+    dirs = set()
+    for p in paths:
+        if not isinstance(p, str):
+            continue
+        d = os.path.dirname(p)
+        if d:
+            dirs.add(d)
+    sorted_dirs = sorted(dirs)
+    root_norm = os.path.normpath(root_dir) if root_dir else None
+
+    dir_to_placeholder = {}
+    placeholder_to_dir = {}
+    used_names = set()
+
+    for d in sorted_dirs:
+        if root_norm and os.path.normpath(d) == root_norm:
+            ph = "%C%"
+            dir_to_placeholder[d] = ph
+            placeholder_to_dir[ph] = d
+            used_names.add("C")
+            break
+
+    for d in sorted_dirs:
+        if d in dir_to_placeholder:
+            continue
+        parent = os.path.dirname(d)
+        base = os.path.basename(parent) if parent else os.path.basename(d)
+        if not base or base in used_names:
+            i = 1
+            while (f"{base}{i}" if base else f"dir{i}") in used_names:
+                i += 1
+            base = f"{base}{i}" if base else f"dir{i}"
+        ph = f"%{base}%"
+        dir_to_placeholder[d] = ph
+        placeholder_to_dir[ph] = d
+        used_names.add(base)
+
+    return dir_to_placeholder, placeholder_to_dir
+
+
+# [Auto Texture] AI adjustment - convert full path to %name%/basename - Modified: 2026-08-16
+def _to_placeholder_path(full_path, dir_to_placeholder):
+    """Convert a full path to %placeholder%/basename form."""
+    if not isinstance(full_path, str) or not full_path:
+        return full_path
+    d = os.path.dirname(full_path)
+    ph = dir_to_placeholder.get(d)
+    if ph:
+        return f"{ph}/{os.path.basename(full_path)}"
+    return os.path.basename(full_path) if not d else full_path
+
+
+# [Auto Texture] AI adjustment - expand %name%/basename back to full path - Modified: 2026-08-16
+def _expand_placeholder_path(ph_path, placeholder_to_dir):
+    """Convert a %placeholder%/basename path back to a full path."""
+    if not isinstance(ph_path, str) or not ph_path:
+        return ph_path
+    for ph, d in placeholder_to_dir.items():
+        if ph_path == ph:
+            return d
+        if ph_path.startswith(ph + "/") or ph_path.startswith(ph + "\\"):
+            rest = ph_path[len(ph) + 1:]
+            return os.path.join(d, rest) if rest else d
+    # Fallback: if %C% is not in the map, try each directory (shortest first = root)
+    if ph_path.startswith("%C%/") or ph_path.startswith("%C%\\"):
+        basename = ph_path[4:]
+        for d in sorted(placeholder_to_dir.values(), key=len):
+            candidate = os.path.join(d, basename)
+            if os.path.isfile(candidate):
+                return candidate
+    return ph_path
+
+
+# [Auto Texture] AI adjustment - build submission data from matches - Modified: 2026-08-16
+def _build_ai_submission_data(texture_matches, classified_files_map=None, root_dir=None):
+    """Build AI submission data from current matches.
+
+    Returns (submission, placeholder_map).  Paths use %name%/basename form
+    where %name% is a human-readable directory placeholder (%C% for root,
+    parent dir name otherwise).  AI returns the same form; _parse_ai_return_data
+    expands placeholders back to full paths.
+    """
+    if classified_files_map is None:
+        classified_files_map = {}
+
+    all_full_paths = []
+    per_material = []
+    for item in texture_matches:
+        mat_name = item.material_name
+        matched_files = set()
+        matched_pairs = []
+        for attr, tex_type in zip(_TEX_ATTRS, _TEX_TYPES):
+            path = getattr(item, attr, "")
+            if path:
+                matched_pairs.append((tex_type, path))
+                matched_files.add(path)
+        classified = classified_files_map.get(mat_name)
+        if classified is None:
+            raw = getattr(item, "classified_files", "")
+            classified = [f for f in raw.split("\n") if f] if raw else []
+        unmatch_full = [f for f in classified if f not in matched_files]
+        per_material.append((mat_name, matched_pairs, unmatch_full))
+        all_full_paths.extend(p for _, p in matched_pairs)
+        all_full_paths.extend(unmatch_full)
+
+    dir_to_placeholder, placeholder_to_dir = _build_path_placeholders(all_full_paths, root_dir)
+
+    submission = {}
+    for mat_name, matched_pairs, unmatch_full in per_material:
+        mat_data = {}
+        for tex_type, full in matched_pairs:
+            mat_data[tex_type] = _to_placeholder_path(full, dir_to_placeholder)
+        mat_data["unmatch"] = [
+            _to_placeholder_path(f, dir_to_placeholder) for f in unmatch_full
+        ]
+        submission[mat_name] = mat_data
+    return submission, placeholder_to_dir
+
+
+# [Auto Texture] AI adjustment - parse AI return data - Modified: 2026-08-16
+def _parse_ai_return_data(ai_output, submission_data, placeholder_map=None):
+    """Parse AI return data from output text.
+
+    Returns dict[mat_name, {tex_type: path}].  Raises ValueError on parse failure.
+    Handles outer wrapper {"response": "..."} / {"error": "..."} emitted by Text.py.
+    placeholder_map ({placeholder: dir}) is used to expand %pN% back to full paths.
+    """
+    content_text = ai_output
+    try:
+        outer = json.loads(ai_output)
+        if isinstance(outer, dict):
+            if "error" in outer:
+                raise ValueError(f"AI error: {outer['error']}")
+            if "response" in outer and isinstance(outer["response"], str):
+                content_text = outer["response"]
+    except json.JSONDecodeError:
+        pass
+
+    json_str = None
+    md_match = re.search(r"```json\s*(.*?)\s*```", content_text, re.DOTALL)
+    if md_match:
+        json_str = md_match.group(1)
+    else:
+        try:
+            json.loads(content_text)
+            json_str = content_text
+        except (json.JSONDecodeError, ValueError):
+            obj_match = re.search(r"\{.*\}", content_text, re.DOTALL)
+            if obj_match:
+                json_str = obj_match.group(0)
+
+    if json_str is None:
+        raise ValueError("No JSON found in AI output")
+
+    try:
+        parsed = json.loads(json_str)
+    except (json.JSONDecodeError, ValueError) as e:
+        raise ValueError(f"JSON parse failed: {e}")
+
+    placeholder_to_dir = placeholder_map if isinstance(placeholder_map, dict) else {}
+
+    valid_ph_paths = set()
+    for mat_name, mat_data in submission_data.items():
+        if not isinstance(mat_data, dict):
+            continue
+        for k, v in mat_data.items():
+            if k == "unmatch":
+                if isinstance(v, list):
+                    valid_ph_paths.update(v)
+            elif isinstance(v, str) and v:
+                valid_ph_paths.add(v)
+
+    ai_result = {}
+    for mat_name, mat_data in parsed.items():
+        if not isinstance(mat_data, dict):
+            continue
+        cleaned = {}
+        for k, v in mat_data.items():
+            if k == "unmatch":
+                continue
+            if isinstance(v, str) and v:
+                full = _expand_placeholder_path(v, placeholder_to_dir)
+                if v in valid_ph_paths:
+                    cleaned[k] = full
+                elif os.path.isfile(full):
+                    cleaned[k] = full
+                    print(f"[AI Adjustment] accepted existing path outside candidates: {mat_name}.{k}={full}")
+                else:
+                    print(f"[AI Adjustment] skipped non-existent AI return: {mat_name}.{k}={full}")
+                    log.warning(f"AI return path does not exist, skipped: {mat_name}.{k}={full}")
+        ai_result[mat_name] = cleaned
+
+    return ai_result
+
+
+# [Auto Texture] AI adjustment - resolve runtime python path - Modified: 2026-08-16
+def _resolve_runtime_python():
+    """Return path to runtime/python.exe or None if missing."""
+    addon_dir = os.path.dirname(os.path.abspath(__file__))
+    python_path = os.path.join(addon_dir, "runtime", "python.exe")
+    if os.path.isfile(python_path):
+        return python_path
+    return None
+
+
+# [Auto Texture] AI adjustment - resolve AI script path - Modified: 2026-08-16
+def _resolve_ai_script():
+    """Return path to Text.py or None if missing."""
+    addon_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(addon_dir, "Text.py")
+    if os.path.isfile(script_path):
+        return script_path
+    return None
+
+
+# [Auto Texture] AI adjustment - resolve GGUF directory - Modified: 2026-08-16
+def _resolve_gguf_directory():
+    """Return absolute path to GGUF directory."""
+    addon_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(addon_dir, "GGUF")
+
+
+# [Auto Texture] AI adjustment - scan GGUF model files - Modified: 2026-08-16
+def _scan_gguf_models(self, context):
+    """Scan GGUF directory for .gguf model files.
+
+    Returns list of (identifier, label, description) tuples for EnumProperty.
+    """
+    gguf_dir = _resolve_gguf_directory()
+    if not os.path.isdir(gguf_dir):
+        return [("none", "无可用模型", "")]
+
+    models = []
+    try:
+        for f in os.listdir(gguf_dir):
+            if f.lower().endswith(".gguf"):
+                identifier = os.path.splitext(f)[0]
+                models.append((identifier, f, ""))
+    except OSError:
+        return [("none", "无可用模型", "")]
+
+    if not models:
+        return [("none", "无可用模型", "")]
+
+    models.sort(key=lambda m: m[1])
+    return models
+
+
+# [Auto Texture] AI adjustment - resolve selected model absolute path - Modified: 2026-08-16
+def _resolve_selected_model_path(selected_model):
+    """Resolve selected model identifier to absolute file path.
+
+    Returns None if selected_model is empty, 'none', or file doesn't exist.
+    """
+    if not selected_model or selected_model == "none":
+        return None
+    gguf_dir = _resolve_gguf_directory()
+    model_path = os.path.join(gguf_dir, selected_model + ".gguf")
+    if os.path.isfile(model_path):
+        return model_path
+    return None
+
+
+# [Auto Texture] AI adjustment - tolerant subprocess output decoding - Modified: 2026-08-16
+def _decode_subprocess_output(data):
+    """Tolerantly decode subprocess output bytes to string.
+
+    Tries UTF-8, GBK, locale default, then falls back to UTF-8 with replace.
+    """
+    if data is None:
+        return ""
+    if isinstance(data, str):
+        return data
+    for encoding in ("utf-8", "gbk", locale.getpreferredencoding(False)):
+        try:
+            return data.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return data.decode("utf-8", errors="replace")
+
+
+# [Auto Texture] AI adjustment - run AI subprocess - Modified: 2026-08-16
+def _run_ai_subprocess(python_path, script_path, submission_json, prompt, model_path, timeout=120):
+    env = dict(os.environ)
+    env["PYTHONUNBUFFERED"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        process = subprocess.Popen(
+            [python_path, script_path, "--data", submission_json,
+             "--prompt", prompt, "--model", model_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+        )
+    except Exception as e:
+        return (str(e), False)
+
+    stderr_lines = []
+    def _drain_stderr():
+        try:
+            for line in process.stderr:
+                print(line.rstrip())
+                stderr_lines.append(line)
+        except Exception:
+            pass
+    stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+    print("[AI]")
+    stderr_thread.start()
+
+    output_lines = []
+    try:
+        for line in process.stdout:
+            print(line.rstrip())
+            output_lines.append(line)
+    except Exception:
+        pass
+
+    stderr_thread.join(timeout=10)
+    process.wait(timeout=timeout)
+    if process.returncode != 0:
+        err = "".join(stderr_lines)
+        return (err or "AI subprocess failed", False)
+    return (''.join(output_lines), True)
+
+
+# [Auto Texture] AI adjustment - apply AI result to matches on main thread - Modified: 2026-08-16
+def _apply_ai_result_to_matches(texture_matches, ai_result):
+    """Apply AI result to texture_matches on main thread."""
+    name_to_item = {item.material_name: item for item in texture_matches}
+    for mat_name, mat_data in ai_result.items():
+        item = name_to_item.get(mat_name)
+        if item is None:
+            continue
+        for tex_type, path in mat_data.items():
+            for attr, tt in zip(_TEX_ATTRS, _TEX_TYPES):
+                if tt == tex_type:
+                    setattr(item, attr, path)
+                    break
+
+
+# [Auto Texture] AI adjustment - thread executor - Modified: 2026-08-16
+def _execute_ai_adjustment_thread(submission_data, placeholder_map, prompt, model_path, texture_matches_ref, scene_name=None):
+    """Execute AI adjustment in a background thread.
+
+    Uses bpy.app.timers to schedule main-thread updates.
+    AI echo is printed to console/log, not written to ai_prompt.
+    """
+    def _reset_idle():
+        try:
+            if scene_name and scene_name in bpy.data.scenes:
+                bpy.data.scenes[scene_name].node_runner.ai_state = "IDLE"
+        except Exception:
+            pass
+        return None
+
+    try:
+        python_path = _resolve_runtime_python()
+        script_path = _resolve_ai_script()
+
+        if python_path is None:
+            print(f"[[AI Adjustment]] {i18n.get_text('message.ai_runtime_missing')}")
+            bpy.app.timers.register(_reset_idle, first_interval=0)
+            return
+
+        if script_path is None:
+            print(f"[AI Adjustment] {i18n.get_text('message.ai_script_missing')}")
+            bpy.app.timers.register(_reset_idle, first_interval=0)
+            return
+
+        submission_json = json.dumps(submission_data, ensure_ascii=False)
+        print(f"[AI Adjustment] Submission data:\n{submission_json}")
+        print(f"[AI Adjustment] Placeholder map:\n{json.dumps(placeholder_map, ensure_ascii=False, indent=2)}")
+        #print(f"[AI Adjustment] Using model: {model_path}")
+        output, success = _run_ai_subprocess(python_path, script_path, submission_json, prompt, model_path)
+
+        if not success:
+            print(f"[AI Adjustment] Error: {output}")
+            bpy.app.timers.register(_reset_idle, first_interval=0)
+            return
+
+        #print(f"[AI Adjustment] AI output:\n{output}")
+
+        try:
+            ai_result = _parse_ai_return_data(output, submission_data, placeholder_map)
+        except ValueError as e:
+            print(f"[AI Adjustment] Parse failed: {e}")
+            print(f"[AI Adjustment] Raw output:\n{output}")
+            bpy.app.timers.register(_reset_idle, first_interval=0)
+            return
+
+        #print(f"[AI Adjustment] Parsed result:\n{json.dumps(ai_result, ensure_ascii=False, indent=2)}")
+
+        def _apply_result():
+            try:
+                if scene_name and scene_name in bpy.data.scenes:
+                    scene = bpy.data.scenes[scene_name]
+                    _apply_ai_result_to_matches(scene.node_runner.texture_matches, ai_result)
+                    scene.node_runner.ai_state = "IDLE"
+            except Exception as e:
+                print(f"[AI Adjustment] Failed to apply result: {e}")
+            return None
+        bpy.app.timers.register(_apply_result, first_interval=0)
+
+    except Exception as e:
+        import traceback
+        print(f"[AI Adjustment] Thread crashed: {e}")
+        traceback.print_exc()
+        bpy.app.timers.register(_reset_idle, first_interval=0)
+
+
+# [Auto Texture] AI adjustment operator - Modified: 2026-08-16
+class NODE_OT_ai_adjust(bpy.types.Operator):
+    """AI adjust matching results"""
+
+    bl_idname = _pkg + ".ai_adjust"
+    bl_label = "AI调整"
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.node_runner.ai_state != "ADJUSTING"
+
+    def execute(self, context):
+        scene = context.scene
+        node_runner = scene.node_runner
+
+        if not node_runner.texture_matches:
+            self.report({"WARNING"}, i18n.get_text("message.ai_no_match"))
+            return {"CANCELLED"}
+
+        if node_runner.ai_state == "ADJUSTING":
+            return {"CANCELLED"}
+
+        ai_model = node_runner.ai_model
+        model_path = _resolve_selected_model_path(ai_model)
+        if model_path is None:
+            models = _scan_gguf_models()
+            if models and models[0][0] != "none":
+                node_runner.ai_model = models[0][0]
+                model_path = _resolve_selected_model_path(node_runner.ai_model)
+            if model_path is None:
+                self.report({"WARNING"}, i18n.get_text("message.ai_no_available_model"))
+                return {"CANCELLED"}
+
+        _root_dir = bpy.path.abspath(node_runner.texture_directory) if node_runner.texture_directory else None
+        submission_data, placeholder_map = _build_ai_submission_data(
+            node_runner.texture_matches, root_dir=_root_dir
+        )
+
+        has_data = False
+        for _mat, _md in submission_data.items():
+            if not isinstance(_md, dict):
+                continue
+            for _k, _v in _md.items():
+                if _k == "unmatch":
+                    if _v:
+                        has_data = True
+                        break
+                elif isinstance(_v, str) and _v:
+                    has_data = True
+                    break
+            if has_data:
+                break
+        if not has_data:
+            self.report({"WARNING"}, i18n.get_text("message.ai_no_data"))
+            return {"CANCELLED"}
+
+        node_runner.ai_state = "ADJUSTING"
+
+        prompt = node_runner.ai_prompt
+
+        thread = threading.Thread(
+            target=_execute_ai_adjustment_thread,
+            args=(submission_data, placeholder_map, prompt, model_path, node_runner.texture_matches, scene.name),
+            daemon=True,
+        )
+        thread.start()
+
+        return {"FINISHED"}
 
 
 class NodeRunnerProperties(bpy.types.PropertyGroup):
     texture_directory: bpy.props.StringProperty(
-        name="Texture Directory",
-        description="Directory containing texture files",
+        name="",
+        description="Resource directory for textures (defaults to blend file directory)",
         default="",
         maxlen=1024,
         subtype="DIR_PATH",
@@ -1534,6 +2736,20 @@ class NodeRunnerProperties(bpy.types.PropertyGroup):
     texture_matches: bpy.props.CollectionProperty(
         name="Texture Matches",
         type=TextureMatchItem,
+    )
+    ai_prompt: bpy.props.StringProperty(
+        name="AI Prompt",
+        default="",
+        maxlen=8192,
+    )
+    ai_state: bpy.props.EnumProperty(
+        name="AI State",
+        items=[("IDLE", "空闲", ""), ("ADJUSTING", "调整中", "")],
+        default="IDLE",
+    )
+    ai_model: bpy.props.EnumProperty(
+        name="AI Model",
+        items=_scan_gguf_models
     )
 
 
@@ -1559,6 +2775,10 @@ _classes = (
     NODE_OT_apply_textures,
     NODE_OT_clear_texture_matches,
     NODE_OT_select_texture_directory,
+    NODE_OT_toggle_collapse,
+    NODE_OT_set_texture_directory,
+    NODE_OT_ai_adjust,
+    NODE_OT_uninstall_addon,
     TextureMatchItem,
     NodeRunnerProperties,
 )
