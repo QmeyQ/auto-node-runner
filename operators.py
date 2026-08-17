@@ -252,6 +252,9 @@ class AUTO_NODE_RUNNER_preferences(bpy.types.AddonPreferences):
         # [Auto Texture] Uninstall button - removes nodetmp.txt and cleans up - Modified: 2026-06-09
         layout.separator()
         layout.operator(_pkg + ".uninstall_addon", icon="TRASH")
+        # [Auto Texture] Uninstall button - removes nodetmp.txt and cleans up - Modified: 2026-06-09
+        layout.separator()
+        layout.operator(_pkg + ".uninstall_addon", icon="TRASH")
 
 
 def _get_prefs(context):
@@ -976,7 +979,7 @@ class NODE_RUNNER_OT_confirm_import(bpy.types.Operator):
 class NODE_RUNNER_MT_menu(bpy.types.Menu):
     """Node Runner submenu"""
 
-    bl_idname = _pkg + "_menu"
+    bl_idname = _pkg + "_MT_menu"
     bl_label = "Node Runner"
 
     def draw(self, context):
@@ -1661,9 +1664,18 @@ class NODE_OT_match_textures(bpy.types.Operator):
         scene = context.scene
         node_runner = scene.node_runner
 
-        if not node_runner.texture_directory:
-            self.report({"WARNING"}, i18n.get_text("message.select_directory_first"))
-            return {"CANCELLED"}
+        # [Auto Texture] Reset AI state so the adjust button is re-enabled - Modified: 2026-08-16
+        node_runner.ai_state = "IDLE"
+
+        # [Auto Texture] If no directory set, try blend file directory - Modified: 2026-06-09
+        tex_dir = node_runner.texture_directory
+        if not tex_dir:
+            tex_dir = bpy.path.abspath("//")
+            if tex_dir and os.path.isdir(tex_dir):
+                node_runner.texture_directory = tex_dir
+            else:
+                self.report({"WARNING"}, i18n.get_text("message.select_directory_first"))
+                return {"CANCELLED"}
 
         if ".." in tex_dir.split(os.sep) or ".." in tex_dir.split("/"):
             self.report({"WARNING"}, i18n.get_text("message.invalid_directory"))
@@ -2766,6 +2778,10 @@ _classes = (
     NODE_OT_apply_textures,
     NODE_OT_clear_texture_matches,
     NODE_OT_select_texture_directory,
+    NODE_OT_toggle_collapse,
+    NODE_OT_set_texture_directory,
+    NODE_OT_ai_adjust,
+    NODE_OT_uninstall_addon,
     TextureMatchItem,
     NodeRunnerProperties,
 )
