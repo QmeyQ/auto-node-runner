@@ -24,9 +24,6 @@ struct _Py_exc_state {
     PyObject *errnomap;
     PyBaseExceptionObject *memerrors_freelist;
     int memerrors_numfree;
-#ifdef Py_GIL_DISABLED
-    PyMutex memerrors_lock;
-#endif
     // The ExceptionGroup type
     PyObject *PyExc_ExceptionGroup;
 };

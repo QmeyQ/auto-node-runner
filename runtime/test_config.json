@@ -1,0 +1,8 @@
+{
+  "data": "{\"Book\":{\"basecolor\":\"%C%/Book_BaseColor.png\"}}",
+  "prompt": "test",
+  "model": "E:\\ENV\\3D\\blender\\5.3\\scripts\\addons_core\\auto_node_runner\\GGUF\\Qwen3-0.6B-Q8_0.gguf",
+  "no_think": true,
+  "n_ctx": 4096,
+  "temperature": 0.0
+}

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <title>Wllama 本地测试（LLM 封装）</title>
+    <style>
+        body {
+            font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+            max-width: 880px;
+            margin: 30px auto;
+            padding: 20px;
+            color: #222;
+        }
+        h1 { font-size: 20px; }
+        label { display: block; margin-top: 14px; font-weight: 600; }
+        textarea, input[type="text"], input[type="file"], button {
+            width: 100%;
+            padding: 8px;
+            margin: 6px 0;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        textarea { resize: vertical; }
+        #output, #history {
+            background: #f7f7f9;
+            border: 1px solid #ccc;
+            font-family: "Consolas", "Menlo", monospace;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        #output { height: 240px; }
+        #history { height: 180px; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        #clearHistoryBtn { background: #6c757d; }
+        .row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .toolbar {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .toolbar label { margin-top: 0; font-weight: 600; }
+        .toolbar input[type="checkbox"] {
+            width: auto;
+            margin: 0 4px 0 0;
+        }
+        .toolbar button { width: auto; padding: 6px 14px; margin: 0; }
+        #status { color: #555; flex: 1; }
+        #speed {
+            color: #007bff;
+            font-family: "Consolas", "Menlo", monospace;
+            font-size: 13px;
+            background: #eef4ff;
+            border: 1px solid #cfe2ff;
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔬 本地 Wllama 测试（LLM 封装）</h1>
+
+    <label>📂 选择模型文件 (GGUF, &lt;2GB)：</label>
+    <input type="file" id="modelFile" accept=".gguf" />
+
+    <label>🧠 系统提示词：</label>
+    <textarea id="systemPrompt" rows="2" placeholder="例如：你是一个有用的助手。">你是QWEN3 0.6B模型</textarea>
+
+    <label>✏️ 用户提示词：</label>
+    <textarea id="prompt" rows="3">你能做什么，不能做什么？</textarea>
+
+    <div class="toolbar">
+        <label><input type="checkbox" id="thinkCheckbox" checked />深度思考</label>
+        <button id="clearHistoryBtn" type="button">🗑️ 清除对话历史</button>
+    </div>
+
+    <button id="runBtn" disabled>⏳ 请先加载模型</button>
+
+    <div class="row">
+        <div id="status">就绪</div>
+        <div id="speed">响应速度：—</div>
+    </div>
+
+    <label>📝 生成结果：</label>
+    <textarea id="output" readonly></textarea>
+
+    <label>💬 对话历史：</label>
+    <textarea id="history" readonly></textarea>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "@wllama/wllama": "./esm/index.js"
+        }
+    }
+    </script>
+
+    <script type="module" src="./index.js"></script>
+</body>
+</html>

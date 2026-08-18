@@ -252,9 +252,7 @@ class AUTO_NODE_RUNNER_preferences(bpy.types.AddonPreferences):
         # [Auto Texture] Uninstall button - removes nodetmp.txt and cleans up - Modified: 2026-06-09
         layout.separator()
         layout.operator(_pkg + ".uninstall_addon", icon="TRASH")
-        # [Auto Texture] Uninstall button - removes nodetmp.txt and cleans up - Modified: 2026-06-09
-        layout.separator()
-        layout.operator(_pkg + ".uninstall_addon", icon="TRASH")
+
 
 
 def _get_prefs(context):
@@ -2431,7 +2429,7 @@ def _parse_ai_return_data(ai_output, submission_data, placeholder_map=None):
                     cleaned[k] = full
                 elif os.path.isfile(full):
                     cleaned[k] = full
-                    print(f"[AI Adjustment] accepted existing path outside candidates: {mat_name}.{k}={full}")
+                    #print(f"[AI Adjustment] accepted existing path outside candidates: {mat_name}.{k}={full}")
                 else:
                     print(f"[AI Adjustment] skipped non-existent AI return: {mat_name}.{k}={full}")
                     log.warning(f"AI return path does not exist, skipped: {mat_name}.{k}={full}")
@@ -2527,14 +2525,36 @@ def _decode_subprocess_output(data):
 
 
 # [Auto Texture] AI adjustment - run AI subprocess - Modified: 2026-08-16
-def _run_ai_subprocess(python_path, script_path, submission_json, prompt, model_path, timeout=120):
+def _run_ai_subprocess(python_path, script_path, submission_json, prompt, model_path, timeout=120, extra_args=None, echo_callback=None):
     env = dict(os.environ)
     env["PYTHONUNBUFFERED"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+
+    import tempfile
+    config = {"data": submission_json, "prompt": prompt, "model": model_path}
+    if extra_args:
+        i = 0
+        while i < len(extra_args):
+            key = extra_args[i]
+            if key.startswith("--"):
+                key_name = key[2:]
+                if i + 1 < len(extra_args) and not extra_args[i + 1].startswith("--"):
+                    config[key_name] = extra_args[i + 1]
+                    i += 2
+                else:
+                    config[key_name] = True
+                    i += 1
+            else:
+                i += 1
+
+    tmp_file = None
     try:
+        tmp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8")
+        json.dump(config, tmp_file, ensure_ascii=False)
+        tmp_file.close()
+        cmd = [python_path, script_path, "--config_file", tmp_file.name]
         process = subprocess.Popen(
-            [python_path, script_path, "--data", submission_json,
-             "--prompt", prompt, "--model", model_path],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             encoding="utf-8",
@@ -2542,6 +2562,8 @@ def _run_ai_subprocess(python_path, script_path, submission_json, prompt, model_
             env=env,
         )
     except Exception as e:
+        if tmp_file and os.path.exists(tmp_file.name):
+            os.unlink(tmp_file.name)
         return (str(e), False)
 
     stderr_lines = []
@@ -2549,6 +2571,8 @@ def _run_ai_subprocess(python_path, script_path, submission_json, prompt, model_
         try:
             for line in process.stderr:
                 print(line.rstrip())
+                if echo_callback:
+                    echo_callback(line)
                 stderr_lines.append(line)
         except Exception:
             pass
@@ -2566,6 +2590,11 @@ def _run_ai_subprocess(python_path, script_path, submission_json, prompt, model_
 
     stderr_thread.join(timeout=10)
     process.wait(timeout=timeout)
+    if tmp_file and os.path.exists(tmp_file.name):
+        try:
+            os.unlink(tmp_file.name)
+        except Exception:
+            pass
     if process.returncode != 0:
         err = "".join(stderr_lines)
         return (err or "AI subprocess failed", False)
@@ -2588,7 +2617,7 @@ def _apply_ai_result_to_matches(texture_matches, ai_result):
 
 
 # [Auto Texture] AI adjustment - thread executor - Modified: 2026-08-16
-def _execute_ai_adjustment_thread(submission_data, placeholder_map, prompt, model_path, texture_matches_ref, scene_name=None):
+def _execute_ai_adjustment_thread(submission_data, placeholder_map, prompt, model_path, texture_matches_ref, scene_name=None, n_ctx=20480, temperature=0.0):
     """Execute AI adjustment in a background thread.
 
     Uses bpy.app.timers to schedule main-thread updates.
@@ -2620,7 +2649,10 @@ def _execute_ai_adjustment_thread(submission_data, placeholder_map, prompt, mode
         print(f"[AI Adjustment] Submission data:\n{submission_json}")
         print(f"[AI Adjustment] Placeholder map:\n{json.dumps(placeholder_map, ensure_ascii=False, indent=2)}")
         #print(f"[AI Adjustment] Using model: {model_path}")
-        output, success = _run_ai_subprocess(python_path, script_path, submission_json, prompt, model_path)
+        output, success = _run_ai_subprocess(
+            python_path, script_path, submission_json, prompt, model_path,
+            extra_args=["--n_ctx", str(n_ctx), "--temperature", str(temperature)],
+        )
 
         if not success:
             print(f"[AI Adjustment] Error: {output}")
@@ -2720,11 +2752,366 @@ class NODE_OT_ai_adjust(bpy.types.Operator):
 
         thread = threading.Thread(
             target=_execute_ai_adjustment_thread,
-            args=(submission_data, placeholder_map, prompt, model_path, node_runner.texture_matches, scene.name),
+            args=(submission_data, placeholder_map, prompt, model_path, node_runner.texture_matches, scene.name,
+                  node_runner.ai_n_ctx, node_runner.ai_temperature),
             daemon=True,
         )
         thread.start()
 
+        return {"FINISHED"}
+
+
+class NODE_OT_node_ai_read(bpy.types.Operator):
+    """Read current node tree and display info for AI processing"""
+
+    bl_idname = _pkg + ".node_ai_read"
+    bl_label = "AI读取节点"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        from . import nodeAI
+
+        info = nodeAI.collect_and_format(context)
+        if not info:
+            self.report({"WARNING"}, "未找到节点树，请在材质节点编辑器中操作")
+            return {"CANCELLED"}
+
+        print(f"[Node AI] Node tree info:\n{info}")
+
+        node_runner = context.scene.node_runner
+        node_runner.node_ai_output = info
+        self.report({"INFO"}, "节点树已读取")
+        return {"FINISHED"}
+
+
+# [Node AI] Find node tree by name on main thread - Added: 2026-08-18
+def _find_node_tree_by_name(name):
+    """Find a node tree by name, searching materials and node groups."""
+    for mat in bpy.data.materials:
+        if mat.node_tree and mat.node_tree.name == name:
+            return mat.node_tree
+    if name in bpy.data.node_groups:
+        return bpy.data.node_groups[name]
+    return None
+
+
+# [Node AI] Background thread for node AI adjustment - Added: 2026-08-18
+def _execute_node_ai_thread(node_info_json, prompt, model_path, history_json, no_think, scene_name, node_tree_name, n_ctx=20480, temperature=0.0):
+    """Execute node AI adjustment in a background thread with streaming echo."""
+    from . import nodeAI
+
+    echo_buffer = []
+    state = {"echo": "", "done": False}
+
+    def _echo_callback(line):
+        echo_buffer.append(line)
+
+    def _update_echo():
+        try:
+            if echo_buffer:
+                text = "".join(echo_buffer)
+                echo_buffer.clear()
+                state["echo"] += text
+                if scene_name in bpy.data.scenes:
+                    bpy.data.scenes[scene_name].node_runner.node_ai_echo = state["echo"]
+        except Exception:
+            pass
+        if state["done"]:
+            return None
+        return 0.05
+
+    bpy.app.timers.register(_update_echo)
+
+    def _finish():
+        try:
+            state["done"] = True
+            if scene_name in bpy.data.scenes:
+                nr = bpy.data.scenes[scene_name].node_runner
+                nr.node_ai_echo = state["echo"]
+                nr.node_ai_state = "IDLE"
+        except Exception:
+            pass
+        return None
+
+    try:
+        python_path = _resolve_runtime_python()
+        script_path = _resolve_ai_script()
+        if python_path is None or script_path is None:
+            print("[Node AI] Runtime or script missing")
+            bpy.app.timers.register(_finish, first_interval=0)
+            return
+
+        extra_args = [
+            "--system_prompt", nodeAI.NODE_AI_SYSTEM_PROMPT,
+            "--full_response",
+            "--n_ctx", str(n_ctx),
+            "--temperature", str(temperature),
+        ]
+
+        if history_json:
+            try:
+                hist = json.loads(history_json)
+                if isinstance(hist, list):
+                    sys_tokens = nodeAI.estimate_tokens(nodeAI.NODE_AI_SYSTEM_PROMPT)
+                    msg_tokens = nodeAI.estimate_tokens(node_info_json) + nodeAI.estimate_tokens(prompt or "")
+                    max_hist_tokens = 40960 - sys_tokens - msg_tokens - 2048
+                    if max_hist_tokens < 1000:
+                        hist = []
+                        print(f"[Node AI] History cleared: message too large ({msg_tokens} tokens)")
+                    else:
+                        hist = nodeAI.trim_history(hist, max_tokens=max_hist_tokens)
+                    history_json = json.dumps(hist, ensure_ascii=False) if hist else ""
+            except json.JSONDecodeError:
+                history_json = ""
+
+        if history_json:
+            extra_args.extend(["--history", history_json])
+        if no_think:
+            extra_args.append("--no_think")
+
+        print(f"[Node AI] Starting AI adjustment, node_tree={node_tree_name}")
+        output, success = _run_ai_subprocess(
+            python_path, script_path, node_info_json, prompt, model_path,
+            timeout=300, extra_args=extra_args, echo_callback=_echo_callback,
+        )
+
+        if not success:
+            print(f"[Node AI] Error: {output}")
+            state["echo"] += f"\n[错误] {output}"
+            bpy.app.timers.register(_finish, first_interval=0)
+            return
+
+        print(f"[Node AI] AI response:\n{output}")
+
+        changes = nodeAI.extract_json_from_response(output)
+        if changes is None:
+            print("[Node AI] No JSON found in response")
+            state["echo"] += "\n[警告] AI 回复中未找到 JSON"
+            bpy.app.timers.register(_finish, first_interval=0)
+            return
+
+        def _apply_and_update():
+            try:
+                if scene_name in bpy.data.scenes:
+                    nr = bpy.data.scenes[scene_name].node_runner
+                    nt = _find_node_tree_by_name(node_tree_name)
+                    if nt:
+                        applied = nodeAI.apply_node_changes(nt, changes)
+                        for line in applied:
+                            print(f"[Node AI] {line}")
+                        state["echo"] += "\n\n[已应用更改]\n" + "\n".join(applied)
+                    else:
+                        print(f"[Node AI] Node tree not found: {node_tree_name}")
+                        state["echo"] += f"\n[错误] 节点树未找到: {node_tree_name}"
+
+                    nr.node_ai_echo = state["echo"]
+                    nr.node_ai_state = "IDLE"
+
+                    new_hist = []
+                    if history_json:
+                        try:
+                            new_hist = json.loads(history_json)
+                        except json.JSONDecodeError:
+                            pass
+                    full_user_msg = node_info_json
+                    if prompt:
+                        full_user_msg += f"\n\n用户指令: {prompt}"
+                    new_hist.append({"role": "user", "content": full_user_msg})
+                    new_hist.append({"role": "assistant", "content": output})
+                    new_hist = nodeAI.trim_history(new_hist, max_tokens=60000)
+                    nr.node_ai_history = json.dumps(new_hist, ensure_ascii=False)
+            except Exception as e:
+                print(f"[Node AI] Apply failed: {e}")
+                import traceback
+                traceback.print_exc()
+            return None
+
+        bpy.app.timers.register(_apply_and_update, first_interval=0)
+
+    except Exception as e:
+        import traceback
+        print(f"[Node AI] Thread crashed: {e}")
+        traceback.print_exc()
+        state["echo"] += f"\n[错误] 线程崩溃: {e}"
+        bpy.app.timers.register(_finish, first_interval=0)
+
+
+class NODE_OT_node_ai_adjust(bpy.types.Operator):
+    """AI adjust node tree based on prompt"""
+
+    bl_idname = _pkg + ".node_ai_adjust"
+    bl_label = "AI调整节点"
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        nr = context.scene.node_runner
+        return nr.node_ai_state != "ADJUSTING"
+
+    def execute(self, context):
+        from . import nodeAI
+
+        scene = context.scene
+        node_runner = scene.node_runner
+
+        node_tree = None
+        if context.space_data and hasattr(context.space_data, "node_tree"):
+            node_tree = context.space_data.node_tree
+        if node_tree is None:
+            self.report({"WARNING"}, "未找到节点树")
+            return {"CANCELLED"}
+
+        node_info = nodeAI.collect_and_format(context)
+        if not node_info:
+            self.report({"WARNING"}, "节点树为空")
+            return {"CANCELLED"}
+
+        model_path = _resolve_selected_model_path(node_runner.ai_model)
+        if model_path is None:
+            models = _scan_gguf_models()
+            if models and models[0][0] != "none":
+                node_runner.ai_model = models[0][0]
+                model_path = _resolve_selected_model_path(node_runner.ai_model)
+            if model_path is None:
+                self.report({"WARNING"}, "无可用 AI 模型")
+                return {"CANCELLED"}
+
+        prompt = node_runner.node_ai_prompt
+        user_msg = f"用户指令: {prompt}\n\n当前节点树:\n{node_info}" if prompt else f"当前节点树:\n{node_info}"
+
+        node_runner.node_ai_state = "ADJUSTING"
+        node_runner.node_ai_echo = ""
+
+        thread = threading.Thread(
+            target=_execute_node_ai_thread,
+            args=(user_msg, prompt, model_path, node_runner.node_ai_history,
+                  not node_runner.node_ai_thinking, scene.name, node_tree.name,
+                  node_runner.ai_n_ctx, node_runner.ai_temperature),
+            daemon=True,
+        )
+        thread.start()
+
+        return {"FINISHED"}
+
+
+class NODE_OT_node_manual_read(bpy.types.Operator):
+    """Read current node tree into manual JSON input"""
+
+    bl_idname = _pkg + ".node_manual_read"
+    bl_label = "读取节点"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        from . import nodeAI
+
+        info = nodeAI.collect_and_format(context)
+        if not info:
+            self.report({"WARNING"}, i18n.get_text("message.node_no_tree"))
+            return {"CANCELLED"}
+
+        context.scene.node_runner.node_manual_json = info
+        text = bpy.data.texts.get("NodeManual")
+        if text is None:
+            text = bpy.data.texts.new("NodeManual")
+        text.from_string(info)
+        self.report({"INFO"}, i18n.get_text("message.node_tree_read"))
+        return {"FINISHED"}
+
+
+class NODE_OT_node_manual_apply(bpy.types.Operator):
+    """Apply manual JSON changes to node tree"""
+
+    bl_idname = _pkg + ".node_manual_apply"
+    bl_label = "应用节点"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        from . import nodeAI
+
+        text = bpy.data.texts.get("NodeManual")
+        if text is not None:
+            json_str = text.as_string()
+            context.scene.node_runner.node_manual_json = json_str
+        else:
+            json_str = context.scene.node_runner.node_manual_json
+        if not json_str.strip():
+            self.report({"WARNING"}, i18n.get_text("message.node_tree_empty"))
+            return {"CANCELLED"}
+
+        changes = nodeAI.extract_json_from_response(json_str)
+        if changes is None:
+            self.report({"WARNING"}, i18n.get_text("message.node_invalid_json"))
+            return {"CANCELLED"}
+
+        node_tree = None
+        if context.space_data and hasattr(context.space_data, "node_tree"):
+            node_tree = context.space_data.node_tree
+        if node_tree is None:
+            self.report({"WARNING"}, i18n.get_text("message.node_no_tree"))
+            return {"CANCELLED"}
+
+        applied = nodeAI.apply_node_changes(node_tree, changes)
+        for line in applied:
+            print(f"[Node Manual] {line}")
+        self.report({"INFO"}, i18n.get_text("message.node_applied"))
+        return {"FINISHED"}
+
+
+class NODE_OT_node_manual_edit(bpy.types.Operator):
+    """Open Blender text editor to edit multi-line JSON"""
+
+    bl_idname = _pkg + ".node_manual_edit"
+    bl_label = "编辑器编辑"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        text = bpy.data.texts.get("NodeManual")
+        if text is None:
+            text = bpy.data.texts.new("NodeManual")
+        current = context.scene.node_runner.node_manual_json
+        if current.strip():
+            text.from_string(current)
+
+        text_name = text.name
+
+        def _open_editor():
+            opened = False
+            try:
+                bpy.ops.wm.window_new()
+                new_win = bpy.context.window_manager.windows[-1]
+                target_area = None
+                for area in new_win.screen.areas:
+                    if area.type == "NODE_EDITOR":
+                        target_area = area
+                        break
+                if target_area is None:
+                    for area in new_win.screen.areas:
+                        if area.type in ("VIEW_3D", "OUTLINER", "PROPERTIES", "TEXT_EDITOR"):
+                            target_area = area
+                            break
+                if target_area:
+                    target_area.type = "TEXT_EDITOR"
+                    for space in target_area.spaces:
+                        if space.type == "TEXT_EDITOR":
+                            space.text = bpy.data.texts.get(text_name)
+                    opened = True
+            except Exception:
+                pass
+            if not opened:
+                try:
+                    for win in bpy.context.window_manager.windows:
+                        for area in win.screen.areas:
+                            if area.type == "NODE_EDITOR":
+                                area.type = "TEXT_EDITOR"
+                                for space in area.spaces:
+                                    if space.type == "TEXT_EDITOR":
+                                        space.text = bpy.data.texts.get(text_name)
+                                return None
+                except Exception:
+                    pass
+            return None
+
+        bpy.app.timers.register(_open_editor, first_interval=0)
         return {"FINISHED"}
 
 
@@ -2754,6 +3141,60 @@ class NodeRunnerProperties(bpy.types.PropertyGroup):
         name="AI Model",
         items=_scan_gguf_models
     )
+    node_ai_output: bpy.props.StringProperty(
+        name="Node AI Output",
+        default="",
+        maxlen=32768,
+    )
+    node_ai_prompt: bpy.props.StringProperty(
+        name="Node AI Prompt",
+        default="",
+        maxlen=8192,
+    )
+    node_ai_thinking: bpy.props.BoolProperty(
+        name="Deep Thinking",
+        default=True,
+    )
+    ai_n_ctx: bpy.props.IntProperty(
+        name="Context Size",
+        default=20480,
+        min=512,
+        max=131072,
+    )
+    ai_temperature: bpy.props.FloatProperty(
+        name="Temperature",
+        default=0.0,
+        min=0.0,
+        max=2.0,
+    )
+    node_ai_echo: bpy.props.StringProperty(
+        name="Node AI Echo",
+        default="",
+        maxlen=131072,
+    )
+    node_ai_state: bpy.props.EnumProperty(
+        name="Node AI State",
+        items=[("IDLE", "空闲", ""), ("ADJUSTING", "调整中", "")],
+        default="IDLE",
+    )
+    node_ai_history: bpy.props.StringProperty(
+        name="Node AI History",
+        default="",
+        maxlen=131072,
+    )
+    node_ai_echo_expand: bpy.props.BoolProperty(
+        name="Echo Expanded",
+        default=True,
+    )
+    node_manual_json: bpy.props.StringProperty(
+        name="Node Manual JSON",
+        default="",
+        maxlen=131072,
+    )
+    node_manual_expand: bpy.props.BoolProperty(
+        name="Manual Expanded",
+        default=False,
+    )
 
 
 def menu_draw(self, context):
@@ -2781,6 +3222,11 @@ _classes = (
     NODE_OT_toggle_collapse,
     NODE_OT_set_texture_directory,
     NODE_OT_ai_adjust,
+    NODE_OT_node_ai_read,
+    NODE_OT_node_ai_adjust,
+    NODE_OT_node_manual_read,
+    NODE_OT_node_manual_apply,
+    NODE_OT_node_manual_edit,
     NODE_OT_uninstall_addon,
     TextureMatchItem,
     NodeRunnerProperties,

@@ -200,8 +200,92 @@ class AUTO_TEXTURE_PT_main(bpy.types.Panel):
                 _draw_material_block(layout, item)
 
 
+# [Node AI] Node editor sidebar panel - Added: 2026-08-18
+class NODE_AI_PT_main(bpy.types.Panel):
+    bl_label = "Node AI"
+    bl_idname = "NODE_AI_PT_main"
+    bl_space_type = "NODE_EDITOR"
+    bl_region_type = "UI"
+    bl_category = "Auto Texture"
+
+    @classmethod
+    def poll(cls, context):
+        return context.space_data and hasattr(context.space_data, "node_tree") and context.space_data.node_tree is not None
+
+    def draw(self, context):
+        layout = self.layout
+        node_runner = context.scene.node_runner
+
+        box = layout.box()
+        box.label(text="AI 调整")
+        row = box.row()
+        row.prop(node_runner, "node_ai_thinking", text=i18n.get_text("label.deep_thinking"))
+        row = box.row(align=True)
+        row.prop(node_runner, "ai_n_ctx", text="Ctx")
+        row.prop(node_runner, "ai_temperature", text="Temp")
+        row = box.row()
+        row.scale_y = 1.5
+        row.prop(node_runner, "node_ai_prompt", text="")
+        row = box.row()
+        if node_runner.node_ai_state == "ADJUSTING":
+            row.enabled = False
+            row.operator(_PKG + ".node_ai_adjust", text=i18n.get_text("button.ai_adjusting_node"), icon="TIME")
+        else:
+            row.operator(_PKG + ".node_ai_adjust", text=i18n.get_text("button.ai_adjust_node"), icon="MODIFIER")
+
+        if node_runner.node_ai_echo:
+            layout.separator()
+            box = layout.box()
+            row = box.row()
+            row.prop(node_runner, "node_ai_echo_expand", text="", icon="TRIA_DOWN" if node_runner.node_ai_echo_expand else "TRIA_RIGHT", emboss=False)
+            row.label(text="AI 回显")
+            if node_runner.node_ai_echo_expand:
+                col = box.column(align=True)
+                col.scale_y = 0.7
+                lines = node_runner.node_ai_echo.split("\n")
+                for line in lines[-80:]:
+                    col.label(text=line)
+
+
+# [Node Manual] Node editor sidebar panel - Added: 2026-08-18
+class NODE_MANUAL_PT_main(bpy.types.Panel):
+    bl_label = "Node Manual"
+    bl_idname = "NODE_MANUAL_PT_main"
+    bl_space_type = "NODE_EDITOR"
+    bl_region_type = "UI"
+    bl_category = "Auto Texture"
+
+    @classmethod
+    def poll(cls, context):
+        return context.space_data and hasattr(context.space_data, "node_tree") and context.space_data.node_tree is not None
+
+    def draw(self, context):
+        layout = self.layout
+        node_runner = context.scene.node_runner
+
+        row = layout.row(align=True)
+        row.operator(_PKG + ".node_manual_read", text=i18n.get_text("button.node_read"), icon="FILE_TEXT")
+        row.operator(_PKG + ".node_manual_edit", text=i18n.get_text("button.node_edit"), icon="TEXT")
+        row.operator(_PKG + ".node_manual_apply", text=i18n.get_text("button.node_apply"), icon="CHECKMARK")
+
+        box = layout.box()
+        row = box.row()
+        row.prop(node_runner, "node_manual_expand", text="", icon="TRIA_DOWN" if node_runner.node_manual_expand else "TRIA_RIGHT", emboss=False)
+        row.label(text=i18n.get_text("panel.node_manual"))
+        if node_runner.node_manual_expand:
+            text = bpy.data.texts.get("NodeManual")
+            if text is not None:
+                lines = text.as_string().split("\n")
+                col = box.column(align=True)
+                col.scale_y = 0.7
+                for line in lines[-50:]:
+                    col.label(text=line)
+
+
 _classes = (
     AUTO_TEXTURE_PT_main,
+    NODE_AI_PT_main,
+    NODE_MANUAL_PT_main,
 )
 
 

@@ -72,20 +72,46 @@ def _extract_json(raw):
 
 def main():
     parser = argparse.ArgumentParser(description="AI texture match adjustment")
-    parser.add_argument("--data", required=True, help="JSON string of match data")
+    parser.add_argument("--config_file", default="", help="JSON config file with all arguments")
+    parser.add_argument("--data", default="", help="JSON string of match data")
     parser.add_argument("--prompt", default="", help="Additional prompt text")
-    parser.add_argument("--model", required=True, help="Absolute path to GGUF model file")
+    parser.add_argument("--model", default="", help="Absolute path to GGUF model file")
+    parser.add_argument("--history", default="", help="JSON string of conversation history")
+    parser.add_argument("--no_think", action="store_true", help="Prepend /no_think to system prompt")
+    parser.add_argument("--system_prompt", default="", help="Custom system prompt override")
+    parser.add_argument("--full_response", action="store_true", help="Output full response text instead of extracted JSON")
+    parser.add_argument("--n_ctx", type=int, default=40960, help="Context window size")
+    parser.add_argument("--temperature", type=float, default=0.0, help="Temperature for sampling")
     args = parser.parse_args()
 
-    try:
-        submission_data = json.loads(args.data)
-    except json.JSONDecodeError as e:
-        print(json.dumps({"error": f"Invalid input data: {e}"}), flush=True)
+    if args.config_file:
+        with open(args.config_file, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        args.data = cfg.get("data", "")
+        args.prompt = cfg.get("prompt", "")
+        args.model = cfg.get("model", "")
+        args.history = cfg.get("history", "")
+        args.no_think = cfg.get("no_think", False)
+        args.system_prompt = cfg.get("system_prompt", "")
+        args.full_response = cfg.get("full_response", False)
+        args.n_ctx = int(cfg.get("n_ctx", 40960))
+        args.temperature = float(cfg.get("temperature", 0.0))
+
+    if not args.data or not args.model:
+        print(json.dumps({"error": "Missing required arguments: data and model"}), flush=True)
         sys.exit(1)
 
-    # 打印调试信息到 stderr
-    #print("[DEBUG] 原始匹配数据:", file=sys.stderr, flush=True)
-    #print(json.dumps(submission_data, ensure_ascii=False, indent=2), file=sys.stderr, flush=True)
+    if args.system_prompt or args.full_response:
+        user_content = args.data
+        if args.prompt:
+            user_content += f"\n\n用户指令: {args.prompt}"
+    else:
+        try:
+            submission_data = json.loads(args.data)
+        except json.JSONDecodeError as e:
+            print(json.dumps({"error": f"Invalid input data: {e}"}), flush=True)
+            sys.exit(1)
+        user_content = _build_user_message(submission_data, args.prompt)
 
     try:
         from llama_cpp import Llama
@@ -97,42 +123,47 @@ def main():
         llm = Llama(
             model_path=args.model,
             n_gpu_layers=-1,
-            n_ctx=4096,
-            temperature=0.0,
+            n_ctx=args.n_ctx,
+            temperature=args.temperature,
             n_batch=512,
             verbose=False
         )
 
-        messages = [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": _build_user_message(submission_data, args.prompt)},
-        ]
+        if args.system_prompt:
+            sys_prompt = args.system_prompt
+        else:
+            sys_prompt = _SYSTEM_PROMPT
+        if args.no_think and not sys_prompt.startswith("/no_think"):
+            sys_prompt = "/no_think " + sys_prompt
 
-        #print("\n[DEBUG] 发送给模型的完整消息:", file=sys.stderr, flush=True)
-        #print(json.dumps(messages, ensure_ascii=False, indent=2), file=sys.stderr, flush=True)
+        messages = [{"role": "system", "content": sys_prompt}]
+
+        if args.history:
+            try:
+                hist = json.loads(args.history)
+                if isinstance(hist, list):
+                    messages.extend(hist)
+            except json.JSONDecodeError:
+                pass
+
+        messages.append({"role": "user", "content": user_content})
 
         full_response = ""
-        stream = llm.create_chat_completion(messages=messages, stream=True, max_tokens=20480
-        ) 
+        stream = llm.create_chat_completion(messages=messages, stream=True, max_tokens=40960)
         for chunk in stream:
             delta = chunk["choices"][0]["delta"].get("content", "")
             if delta:
                 full_response += delta
                 print(delta, end="", file=sys.stderr, flush=True)
 
-        #print("\n[DEBUG] 完整回复:", file=sys.stderr, flush=True)
-        #print(full_response, file=sys.stderr, flush=True)
-
-        clean_json = _extract_json(full_response)
-        if clean_json is None:
-            print(json.dumps({"error": "Failed to parse JSON from model output", "raw": full_response}, ensure_ascii=False), flush=True)
-            sys.exit(1)
-
-        #print("\n[DEBUG] 最终解析出的 JSON (将输出到 stdout):", file=sys.stderr, flush=True)
-       #print(json.dumps(clean_json, ensure_ascii=False, indent=2), file=sys.stderr, flush=True)
-
-        # 输出到 stdout 不可注释
-        print(json.dumps(clean_json, ensure_ascii=False), flush=True)
+        if args.full_response:
+            print(full_response, flush=True)
+        else:
+            clean_json = _extract_json(full_response)
+            if clean_json is None:
+                print(json.dumps({"error": "Failed to parse JSON from model output", "raw": full_response}, ensure_ascii=False), flush=True)
+                sys.exit(1)
+            print(json.dumps(clean_json, ensure_ascii=False), flush=True)
 
     except Exception as e:
         print(json.dumps({"error": str(e)}), flush=True)
